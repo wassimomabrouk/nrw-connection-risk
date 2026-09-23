@@ -1,0 +1,42 @@
+# Collector v1: the five hubs only. Feeder stations are added here in v1.1.
+
+[api]
+base_url = "https://apis.deutschebahn.com/db-api-marketplace/apis/timetables/v1"
+max_calls_per_minute = 50   # DB free plan allows 60; keep a safety margin
+timeout_s = 30
+max_retries = 3
+
+[schedule]
+rchg_interval_s = 60        # recent changes (last ~2 min), cheap
+fchg_interval_s = 1800      # full change state, repairs anything rchg missed
+plan_interval_s = 3600      # planned timetable, hour slices
+plan_hours_behind = 2       # on each plan run, fetch hours [now - behind, now + ahead]
+plan_hours_ahead = 3
+
+[storage]
+data_dir = "data/collector"
+flush_interval_s = 600      # write buffered parsed rows to Parquet every 10 min
+
+[health]
+heartbeat_file = "data/collector/heartbeat.json"
+ping_interval_s = 300       # ping HEALTHCHECK_URL (env) at most every 5 min
+
+[[stations]]
+eva = "8000207"
+name = "Köln Hbf"
+
+[[stations]]
+eva = "8000085"
+name = "Düsseldorf Hbf"
+
+[[stations]]
+eva = "8000086"
+name = "Duisburg Hbf"
+
+[[stations]]
+eva = "8000098"
+name = "Essen Hbf"
+
+[[stations]]
+eva = "8000001"
+name = "Aachen Hbf"

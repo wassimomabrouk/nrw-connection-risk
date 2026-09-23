@@ -1,0 +1,104 @@
+
+== 1. Raw overview ==
+Files: 5, total size: 196.0 MB
+  column_name column_type
+    timestamp   TIMESTAMP
+          url     VARCHAR
+     api_name     VARCHAR
+ query_params     VARCHAR
+response_data     VARCHAR
+  status_code     VARCHAR
+        error     VARCHAR
+  duration_ms      DOUBLE
+         year      BIGINT
+        month      BIGINT
+          day      BIGINT
+          eva     VARCHAR
+                api_name status_code  requests  stations  with_error                   first_ts                    last_ts
+      timetables/v1/plan         200    130128      5422         0.0 2026-08-12 05:05:42.441911 2026-08-12 22:39:53.637261
+      timetables/v1/fchg         200     27110      5422         0.0 2026-08-12 05:00:53.664566 2026-08-12 22:24:47.992270
+      timetables/v1/plan         NaN       840        35       840.0 2026-08-12 05:06:19.779490 2026-08-12 22:40:27.482173
+      timetables/v1/fchg         NaN       175        35       175.0 2026-08-12 05:01:31.090081 2026-08-12 22:25:21.835266
+station-data/v2/stations         200        35         1         0.0 2026-08-12 05:00:38.447671 2026-08-12 22:20:20.299546
+     fasta/v2/facilities         200         5         1         0.0 2026-08-12 05:00:37.551544 2026-08-12 22:20:06.611957
+
+== 2. fchg poll cadence at hubs (minutes between requests) ==
+    eva            hub  polls  median_gap    p90_gap    max_gap
+8000001     Aachen Hbf      5  335.069388 351.688144 352.820962
+8000085 Düsseldorf Hbf      5  334.974796 350.283057 350.347080
+8000086   Duisburg Hbf      5  333.887286 351.348216 352.872315
+8000098      Essen Hbf      5  333.671437 351.184521 352.069458
+8000207       Köln Hbf      5  334.303534 352.717399 354.121554
+Hubs never polled via fchg: none
+
+== 3. Parsed prognosis snapshots (hubs) ==
+Unparseable responses: 0
+Snapshot rows: 19,028, distinct stops seen: 7,126
+Snapshots per stop, median: 2, p90: 5
+Distinct arrival prognoses per stop, median: 1, p90: 2
+Share of snapshot rows with a cancellation flag (cs='c'): 4.05 %
+
+== 4. Join to processed data by stop id ==
+Snapshot stops matched in processed month: 7,123 of 7,126 (100.0 %)
+Time zone sanity (should be small, near 0 to +10 min; a +-60/120 shift means a wrong zone):
+  median(last request time - final arrival): 290.7 min
+  median(last ct in snapshots - processed final arrival): 0.0 min
+
+== 5. Lead-time coverage (poll within 15 min before cutoff) and DB prognosis error ==
+ lead_min  stops  covered_pct  mae_timetable  mae_db_prognosis  pct_final_ge6
+       60   2975          3.7           9.30              6.73           36.4
+       30   3066          3.8          11.24              7.49           50.4
+       10   3116          4.1          10.39              4.60           42.2
+Caveat: a stop missing from a snapshot is treated as 'no change known' (planned time).
+
+== 6. Zone of raw request timestamps (plan URL hour vs request time) ==
+ requested_hour_minus_request_hour  requests
+                                -2       696
+                                -1      2056
+                                 0      2758
+                                 1      2723
+                                 2      2736
+                                 3      2732
+                                 4      2745
+If the collector asks for the current local hour first, the smallest common offset
+is 0 when timestamps are local time and +2 (summer) when they are UTC.
+
+== 7. Label validity: last observation of a stop vs its final event time ==
+assumed_request_zone  stops  pct_last_seen_before_event  median_gap_min
+                 UTC   6041                        34.0           196.5
+       Europe/Berlin   6041                        39.5            76.5
+Share last seen before event, by planned hour (zone UTC):
+ hour  stops  pct_stale
+    0    148       31.8
+    1     83       47.0
+    2     32       46.9
+    3     28       50.0
+    4     61       41.0
+    5    225       41.3
+    6    357       41.7
+    7    378       42.3
+    8    372       41.7
+    9    361       40.4
+   10    341       42.2
+   11    353       40.5
+   12    351       41.9
+   13    359       40.9
+   14    352       41.2
+   15    362       40.9
+   16    370       40.8
+   17    326       31.9
+   18    256       13.7
+   19    238        6.7
+   20    223        5.4
+   21    192        5.2
+   22    136        1.5
+   23    137        2.9
+A stop last seen before its event carries a prognosis, not an observed time.
+Hub arrivals planned on 2026-08-12: 3,876, of which seen in any snapshot: 3,867
+
+== Key answers ==
+Hubs polled: 5 of 5, median poll gap: 334.3 min
+Stop id join rate: 100.0 %
+Lead 60 min: coverage 3.7 %, MAE timetable 9.3 vs DB prognosis 6.73
+Lead 30 min: coverage 3.8 %, MAE timetable 11.24 vs DB prognosis 7.49
+Lead 10 min: coverage 4.1 %, MAE timetable 10.39 vs DB prognosis 4.6

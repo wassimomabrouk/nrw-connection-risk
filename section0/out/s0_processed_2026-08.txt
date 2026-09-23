@@ -1,0 +1,204 @@
+
+== 1. File and schema ==
+File: data-2026-08.parquet, size: 606.7 MB, rows: 14,516,986
+              column_name  column_type
+             station_name      VARCHAR
+         xml_station_name      VARCHAR
+                      eva      VARCHAR
+             train_number      VARCHAR
+              line_number      VARCHAR
+final_destination_station      VARCHAR
+             delay_in_min      INTEGER
+                     time TIMESTAMP_NS
+      arrival_is_canceled      BOOLEAN
+    departure_is_canceled      BOOLEAN
+               train_type      VARCHAR
+       is_additional_stop      BOOLEAN
+     is_replacement_train      BOOLEAN
+    replaced_train_number      VARCHAR
+       train_line_ride_id      VARCHAR
+   train_line_station_num      INTEGER
+     arrival_planned_time TIMESTAMP_NS
+      arrival_change_time TIMESTAMP_NS
+   departure_planned_time TIMESTAMP_NS
+    departure_change_time TIMESTAMP_NS
+                       id      VARCHAR
+Time zone aware columns: none (naive timestamps, zone must be established)
+
+== 2. Time coverage ==
+    min_arr_planned     max_arr_planned     min_dep_planned     max_dep_planned   min_time            max_time
+2026-07-31 19:45:00 2026-09-01 00:29:00 2026-07-31 19:46:00 2026-09-01 00:04:00 2026-08-01 2026-08-31 23:59:00
+       day   rows
+2026-07-31   1330
+2026-08-01 431627
+2026-08-02 404434
+2026-08-03 493470
+2026-08-04 492357
+2026-08-05 494618
+2026-08-06 489600
+2026-08-07 489790
+2026-08-08 433415
+2026-08-09 408243
+2026-08-10 496591
+2026-08-11 497264
+2026-08-12 494511
+2026-08-13 496477
+2026-08-14 499054
+2026-08-15 437000
+2026-08-16 409471
+2026-08-17 496307
+2026-08-18 489351
+2026-08-19 489280
+2026-08-20 494017
+2026-08-21 491866
+2026-08-22 426388
+2026-08-23 401682
+2026-08-24 494220
+2026-08-25 503375
+2026-08-26 505205
+2026-08-27 453217
+2026-08-28 426324
+2026-08-29 436343
+2026-08-30 405873
+2026-08-31 497641
+2026-09-01      5
+       NaT  36640
+Rows without any planned time: 36,640
+
+== 3. Null share per column (%) ==
+                   column  null_pct
+             station_name      0.04
+         xml_station_name      0.00
+                      eva      0.00
+             train_number      0.25
+              line_number      1.98
+final_destination_station      8.35
+             delay_in_min      0.25
+                     time      0.00
+      arrival_is_canceled      0.00
+    departure_is_canceled      0.00
+               train_type      0.25
+       is_additional_stop      0.00
+     is_replacement_train      0.00
+    replaced_train_number     99.40
+       train_line_ride_id      0.00
+   train_line_station_num      0.00
+     arrival_planned_time      8.33
+      arrival_change_time      8.10
+   departure_planned_time      8.35
+    departure_change_time      8.11
+                       id      0.00
+
+== 4. Uniqueness ==
+    rows  distinct_id  distinct_ride_stationnum  distinct_ride_eva
+14516986     14516986                   1058162            1060130
+
+== 5. Semantics of delay_in_min and time ==
+ pct_delay_eq_arr_delay  pct_delay_eq_dep_delay  pct_time_eq_arr_change  pct_time_eq_dep_change  pct_time_eq_arr_planned  pct_time_eq_dep_planned
+                  58.14                   100.0                   34.38                   100.0                    14.06                    36.76
+Change vs planned consistency:
+ arr_change_without_planned  arr_planned_without_change  rows_without_any_planned  pct_arr_delay_exactly_0
+                    33267.0                         0.0                   36640.0                    40.02
+Sample rows (id structure):
+                                id   train_line_ride_id  train_line_station_num train_type train_number arrival_planned_time departure_planned_time
+ 7597558148646217621-2607312314-19  7597558148646217621                      19          S         8927  2026-08-01 00:02:00    2026-08-01 00:02:00
+-3321211232324848283-2608010925-13 -3321211232324848283                      13          S        41078  2026-08-01 09:52:00    2026-08-01 09:52:00
+ -3027144709026300008-2608011447-4 -3027144709026300008                       4        SWE        86266  2026-08-01 15:14:00    2026-08-01 15:15:00
+ 7583597075495619506-2608020642-15  7583597075495619506                      15        vlx        76710  2026-08-02 07:27:00    2026-08-02 07:28:00
+-1350348120903011419-2608021245-14 -1350348120903011419                      14          S        85358  2026-08-02 13:22:00    2026-08-02 13:23:00
+ 3745793782147764309-2608021720-17  3745793782147764309                      17        ARV        19477  2026-08-02 18:43:00    2026-08-02 18:43:00
+ -5172956621384525686-2608030425-8 -5172956621384525686                       8        ARV        57005  2026-08-03 04:51:00    2026-08-03 05:01:00
+ -3625555993985335901-2608040923-6 -3625555993985335901                       6         RB        13325  2026-08-04 09:42:00    2026-08-04 09:43:00
+Arrival delay distribution where change time exists (minutes):
+       n  p01  p25  p50  p75  p95  p99  pct_early  pct_ge6
+13307195 -1.0  0.0  1.0  3.0 15.0 37.0       2.65    15.62
+
+== 6. Cancellations ==
+ pct_arr_canceled  pct_dep_canceled  pct_canceled_arr_with_change_time  pct_canceled_arr_with_delay
+            3.704             3.702                              100.0                        99.92
+Replacement trains and additional stops (columns not in the dataset README):
+ pct_replacement_train  pct_with_replaced_number  pct_additional_stop
+                 0.749                     0.601                0.173
+
+== 7a. Candidate keys for one train run (one day) ==
+               key    runs  pct_runs_with_repeated_station_num  median_stops  pct_order_violations
+train_line_ride_id  103338                               80.11           8.0                49.307
+        run_key_id 1323326                                0.00           9.0                 0.004
+       run_key_day 1325544                                0.05           9.0                 0.182
+A good run key has ~0 % repeated station numbers and ~0 % order violations.
+
+== 7b. Ride-level stats via train_line_ride_id (as provided) ==
+ rides  median_stops  pct_ge2_stops  pct_contiguous_numbering  pct_starts_at_0_or_1  pct_span_over_24h  pct_with_duplicate_stops
+103338           8.0          90.59                     89.08                 88.74             78.862                     80.11
+Coverage within rides (observed stops / numbered range):
+ p10  p50  p90
+ 0.8  1.0  1.0
+Planned-time order violations along station_num: 49.34 %
+
+== 8. Station coverage and hub EVA check ==
+Distinct EVA: 5,260
+    eva   station_name  rows  rows_per_day
+8000085 Düsseldorf Hbf 37146        1161.0
+8000207       Köln Hbf 36772        1149.0
+8000098      Essen Hbf 27847         870.0
+8000086   Duisburg Hbf 21939         686.0
+8000001     Aachen Hbf 15055         486.0
+Name check for Köln Hbf (expected EVA 8000207):
+    eva station_name  rows
+8000207     Köln Hbf 36772
+Name check for Düsseldorf Hbf (expected EVA 8000085):
+    eva   station_name  rows
+8000085 Düsseldorf Hbf 37146
+Name check for Duisburg Hbf (expected EVA 8000086):
+    eva station_name  rows
+8000086 Duisburg Hbf 21939
+Name check for Essen Hbf (expected EVA 8000098):
+    eva station_name  rows
+8000098    Essen Hbf 27847
+Name check for Aachen Hbf (expected EVA 8000001):
+    eva station_name  rows
+8000001   Aachen Hbf 15055
+Train types at hubs:
+train_type  rows  mean_arr_delay_where_changed
+         S 42019                          4.48
+        NX 23815                         10.30
+       ICE 15874                         18.37
+        RB 14436                          4.18
+        RE 13228                          8.48
+       VIA  6686                         10.90
+       Bus  5797                          3.64
+       RRB  5225                          9.02
+       ERB  3400                          6.99
+         R  2539                          3.11
+        IC  2256                         16.52
+        TR  1252                          9.87
+       FLX   913                         23.43
+       EUR   499                         13.94
+        NJ   306                         29.29
+       NaN   223                           NaN
+       TRI   195                         18.16
+        DZ    65                          2.87
+       UEX    17                         16.77
+       MSM    14                          6.23
+
+== 9. Connections at hubs (window 5 to 30 min, min transfer 4 min, null change time treated as on time) ==
+    eva            hub  pairs  pairs_per_day  pct_miss_delay  pct_A_canceled  pct_B_canceled
+8000207       Köln Hbf 751483        23484.0           12.05            6.70            5.87
+8000085 Düsseldorf Hbf 563964        17624.0           14.00            6.06            5.58
+8000098      Essen Hbf 337074        10534.0           13.20            6.07            5.85
+8000086   Duisburg Hbf 267596         8362.0           14.46            6.62            5.88
+8000001     Aachen Hbf  65316         2107.0            8.63           12.54           10.32
+By planned slack bucket:
+slack_bucket  pairs  pct_miss_delay
+       05-09 378963           26.36
+       10-14 380466           16.28
+       15-19 385792           10.78
+       20-30 840212            6.54
+Note: these are ALL arrival/departure pairs in the window, not real passenger
+transfers. Filtering to plausible connections is a design decision for DESIGN.md.
+
+== Key answers ==
+Rows this month: 14,516,986
+Rides with 2+ linked stops: 90.6 %
+Hub pairs this month: 1,985,433, miss rate by delay: 13.01 %
+Prognosis snapshots: not in processed data (one final change time per stop), see s0_raw.py
