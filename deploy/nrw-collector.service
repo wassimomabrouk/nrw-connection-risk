@@ -1,0 +1,17 @@
+[Unit]
+Description=NRW connection risk - DB Timetables collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/nrw-connection-risk
+ExecStart=/home/ubuntu/nrw-connection-risk/.venv/bin/python -m nrw_connection_risk.collector.main
+Restart=always
+RestartSec=30
+TimeoutStopSec=120
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
