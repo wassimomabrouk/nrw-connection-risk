@@ -2,7 +2,7 @@
 
 Predicting missed train connections at five NRW rail hubs (Köln Hbf, Düsseldorf Hbf, Duisburg Hbf, Essen Hbf, Aachen Hbf) from live Deutsche Bahn timetable data, and comparing the model against DB's own prognosis at fixed lead times.
 
-**Status: work in progress.** The data collector is complete and running. Modelling starts once enough data has been collected.
+**Status: work in progress.** The data collector has been running in production since 2026-09-24 (Oracle Cloud, systemd, external monitoring, daily off-site backup; see [docs/OPERATIONS.md](docs/OPERATIONS.md)). Modelling starts once enough data has been collected.
 
 ## Why a custom collector
 
@@ -17,7 +17,9 @@ config/collector.toml            stations, polling intervals, storage settings
 src/nrw_connection_risk/
     collector/                   API client, XML parsing, storage, scheduler, health checks
 tests/                           unit and integration tests (pytest)
-tools/                           API smoke test, collection status report
+tools/                           API smoke test, collection status, raw-to-parsed rebuild
+deploy/                          systemd units for the collector and the daily backup
+docs/                            operations runbook
 section0/                        feasibility scripts on the historical dataset
 ```
 

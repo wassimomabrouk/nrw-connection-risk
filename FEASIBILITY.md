@@ -35,11 +35,11 @@ Profiled in detail: 2026-08 (14.5M rows), 2025-10 (2.0M rows) and the raw respon
 
 ## 4. Decisions
 
-**D1. Own collector.** The project collects its own data from the DB Timetables API (free key, 60 requests per minute on the free plan, to be confirmed at sign-up): `fchg` for the five hubs every 1 to 2 minutes, plus the main NRW feeder stations at a lower cadence within the rate limit, and hourly `plan` requests. This yields observed labels, DB's prognosis at every lead time, and point-in-time features. The collector is the first production component of the project.
+**D1. Own collector.** The project collects its own data from the DB Timetables API (free key, 60 requests per minute on the free plan): recent changes (`rchg`, the last two minutes) for the five hubs every minute, the full change state (`fchg`) every 30 minutes to repair any gap, and hourly timetable slices (`plan`). The main NRW feeder stations can be added within the rate limit. This yields observed labels, DB's prognosis at every lead time, and point-in-time features. The collector is the first production component of the project.
 
 **D2. Role of the historical data.** Used only for what depends on planned times: network structure, the definition of plausible transfers, timetable EDA, and sizing. Not used for labels.
 
-**D3. Hosting.** The collector runs 24/7 on an Oracle Cloud Always Free instance, with an external heartbeat check and a daily off-machine backup of the collected data.
+**D3. Hosting.** The collector runs 24/7 on an Oracle Cloud Always Free instance (VM.Standard.A1.Flex, 1 OCPU, 6 GB, Frankfurt), managed by systemd with automatic restart. The account stays on the free tier. Oracle may stop idle Always Free instances; this risk is accepted and mitigated by an external heartbeat check (healthchecks.io, alert after 15 minutes of silence), automatic restart after reboots, and a daily off-provider backup of the raw layer to Google Drive (rclone, `copy` semantics so deletions never propagate).
 
 **D4. Run key.** One train run is identified by the stop `id` without its final segment.
 
@@ -51,7 +51,12 @@ Profiled in detail: 2026-08 (14.5M rows), 2025-10 (2.0M rows) and the raw respon
 
 ## 5. Open items
 
-- Confirm the Timetables API rate limit and terms at sign-up.
 - Choose the feeder station set within the rate budget (design phase).
-- Verify during the first collection days how long past events remain in `fchg` responses, which determines how the observed arrival time is extracted.
 - Aachen's elevated cancellation rate in 2026-08 (possible construction work) is worth a closer look during EDA.
+
+Resolved after closing: the free plan allows 60 requests per minute (confirmed at subscription); `fchg` responses retain past arrivals for about 12 hours (700 minutes observed on 2026-09-23), so every arrival is observed after the event.
+
+## 6. Implementation status
+
+- Collector v1 (five hubs) deployed on 2026-09-24; continuous collection since **2026-09-24 03:38 UTC**. First 11 hours: 3,799 API calls, 0 errors.
+- Operations (service, monitoring, backup, restore): [docs/OPERATIONS.md](docs/OPERATIONS.md).

@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "duckdb>=1.1", "pandas>=2.2"]
 
 [project.scripts]
 nrw-collector = "nrw_connection_risk.collector.main:main"
