@@ -1,0 +1,194 @@
+
+== 1. Coverage ==
+raw files: 75, first response: 2026-09-24T03:23:53.775458+00:00, last response: 2026-09-25T03:41:22.441735+00:00
+  fchg: 255 responses
+  plan: 810 responses
+  rchg: 7,221 responses
+
+== 2. Element paths (count per source) ==
+  fchg  /timetable                                      255
+  fchg  /timetable/m                                    357
+  fchg  /timetable/s                                138,096
+  fchg  /timetable/s/ar                              83,102
+  fchg  /timetable/s/ar/m                           133,800
+  fchg  /timetable/s/dp                              84,292
+  fchg  /timetable/s/dp/m                           160,053
+  fchg  /timetable/s/m                              132,585
+  fchg  /timetable/s/ref                                430
+  fchg  /timetable/s/ref/tl                             430
+  fchg  /timetable/s/tl                               8,145
+  plan  /timetable                                      810
+  plan  /timetable/s                                 32,321
+  plan  /timetable/s/ar                              24,807
+  plan  /timetable/s/dp                              25,098
+  plan  /timetable/s/tl                              32,321
+  rchg  /timetable                                    7,221
+  rchg  /timetable/m                                 10,108
+  rchg  /timetable/s                                123,335
+  rchg  /timetable/s/ar                             107,277
+  rchg  /timetable/s/ar/m                           197,643
+  rchg  /timetable/s/dp                              89,304
+  rchg  /timetable/s/dp/m                           176,768
+  rchg  /timetable/s/m                               85,370
+  rchg  /timetable/s/ref                                 48
+  rchg  /timetable/s/ref/tl                              48
+  rchg  /timetable/s/tl                              12,373
+
+== 3. Attributes per element (count, up to 8 most common values) ==
+  /timetable@eva  n=7,476  '8000207':1496, '8000085':1496, '8000086':1495, '8000098':1495, '8000001':1494
+  /timetable@station  n=8,286  'Köln Hbf':1658, 'Düsseldorf Hbf':1658, 'Duisburg Hbf':1657, 'Essen Hbf':1657, 'Aachen Hbf':1656
+  /timetable/m@from  n=10,465  '2602090044':1495, '2510041501':1495, '2512121052':1495, '2602081425':1495, '2512301403':1495, '2601251117':1495, '2602072148':1495
+  /timetable/m@id  n=10,465  'i1091165':1495, 'i1085835':1495, 'i1089300':1495, 'i1091156':1495, 'i1090253':1495, 'i1091078':1495, 'i1091155':1495
+  /timetable/m@t  n=10,465  'i':10465
+  /timetable/m@to  n=10,465  '2702091044':1495, '2610042101':1495, '2612121652':1495, '2702082025':1495, '2612302003':1495, '2701251717':1495, '2702081048':1495
+  /timetable/m@ts  n=10,465  '2602090445':1495, '2511101225':1495, '2512141228':1495, '2602081425':1495, '2601192047':1495, '2601251119':1495, '2602080450':1495
+  /timetable/m@ts-tts  n=10,465  '26-09-23 10:41:20.806':10465
+  /timetable/s@eva  n=261,431  '8000207':81386, '8000085':70349, '8000086':51957, '8000098':35669, '8000001':22070
+  /timetable/s@id  n=293,752  '-5273191544879623408-2609240439-35':107, '9006849605607582963-2609240811-12':102, '2859153541452967006-2609240518-17':101, '171164125345549435-2609240520-35':9 ...
+  /timetable/s/ar@cde  n=169  'Liège-Guillemins':91, 'Gerolstein':76, 'Kordel':2
+  /timetable/s/ar@clt  n=2,740  '2609240959':152, '2609240216':102, '2609241157':67, '2609240005':56, '2609232305':56, '2609240105':52, '2609240701':52, '2609240251':51
+  /timetable/s/ar@cp  n=17,770  '6':2788, '8':2119, '9':1128, '11':915, '5':796, '1':768, '2':699, '10':640
+  /timetable/s/ar@cpth  n=18,234  '':1781, 'Stuttgart Hbf|Vaihingen(Enz)|Heidelberg Hbf|Mannheim Hbf|Mainz Hbf|Koblenz Hbf|Bonn Hbf':576, 'Dortmund Hbf|Hagen Hbf|Wuppertal Hbf|Solingen Hbf':527, ...
+  /timetable/s/ar@cs  n=2,740  'c':2687, 'p':53
+  /timetable/s/ar@ct  n=182,609  '2609240829':221, '2609240634':218, '2609240648':190, '2609240805':180, '2609240929':175, '2609240706':170, '2609240729':167, '2609240633':166
+  /timetable/s/ar@dc  n=310  '1':310
+  /timetable/s/ar@fb  n=43,950  'RE1':2387, 'RE19':2299, 'S1':2145, 'S11':1893, 'RE5':1649, 'RE6':1356, 'RE7':607, 'S3':548
+  /timetable/s/ar@hi  n=36  '1':36
+  /timetable/s/ar@l  n=165,278  'RE1':16775, 'S11':11187, 'RE5':10729, 'S1':10644, 'RE6':10364, 'S6':8183, 'RE19':8103, 'S19':6437
+  /timetable/s/ar@pde  n=651  'Trier Hbf':186, 'Düren':141, 'Liège-Saint-Lambert':106, 'Eijsden':101, 'Maastricht':85, 'Gerolstein':16, 'Liège-Guillemins':8, 'Heerlen':8
+  /timetable/s/ar@pp  n=43,082  '12':2903, '2':2874, '6':2726, '7':2718, '10 A-B':2174, '11 B-C':2128, '11':2087, '10':1775
+  /timetable/s/ar@ppth  n=43,950  'Berlin Südkreuz|Berlin Hbf|Berlin-Spandau|Hannover Hbf|Bielefeld Hbf|Hagen Hbf|Wuppertal Hbf':713, 'Bergisch Gladbach|Duckterath|Köln-Dellbrück|Köln-Holweide|K ...
+  /timetable/s/ar@ps  n=30  'a':30
+  /timetable/s/ar@pt  n=43,950  '2609241315':264, '2609241706':151, '2609241742':131, '2609240549':97, '2609240607':83, '2609240533':66, '2609250728':63, '2609250843':60
+  /timetable/s/ar@tra  n=8  '3044171634029069850-2609240536-1':4, '3044171634029069850-2609250536-1':4
+  /timetable/s/ar@wings  n=1,541  '-7870079253414057442-2609241216':166, '-6909245570628159282-2609241316':136, '8958176728424656021-2609241716':130, '-3466705818574826286-2609241516':115, '-208 ...
+  /timetable/s/ar/m@c  n=331,443  '0':152736, '43':35716, '48':26604, '45':16161, '47':10874, '31':10470, '51':6539, '38':6531
+  /timetable/s/ar/m@id  n=331,443  'r72790367':321, 'r72790369':321, 'r72790636':210, 'r72759785':164, 'r72759788':164, 'r72759789':164, 'r72790364':100, 'r72680595':86
+  /timetable/s/ar/m@t  n=331,443  'd':160471, 'f':156745, 'q':14227
+  /timetable/s/ar/m@ts  n=331,443  '2609240101':1534, '2609231900':1458, '2609240052':1018, '2609240456':932, '2609240306':782, '2609240511':606, '2609240522':589, '2609240051':410
+  /timetable/s/ar/m@ts-tts  n=331,443  '26-09-24 01:01:58.068':1534, '26-09-24 03:06:24.351':782, '26-09-24 04:56:55.730':742, '26-09-24 05:22:13.780':534, '26-09-23 19:00:30.819':492, '26-09-24 04:4 ...
+  /timetable/s/dp@cde  n=117  'Gerolstein':59, 'Liège-Guillemins':57, 'Kordel':1
+  /timetable/s/dp@clt  n=2,881  '2609240959':152, '2609240216':96, '2609241908':95, '2609241157':86, '2609241930':84, '2609240942':71, '2609241600':59, '2609240311':58
+  /timetable/s/dp@cp  n=15,218  '6':2207, '9':1081, '8':946, '5':781, '13':681, '10':650, '2':649, '1':597
+  /timetable/s/dp@cpth  n=17,037  '':2000, 'Solingen Hbf|Wuppertal Hbf|Hagen Hbf|Dortmund Hbf':803, 'Bonn Hbf|Koblenz Hbf|Mainz Hbf|Mannheim Hbf|Heidelberg Hbf|Vaihingen(Enz)|Stuttgart Hbf':272, ...
+  /timetable/s/dp@cs  n=2,881  'c':2796, 'p':85
+  /timetable/s/dp@ct  n=164,630  '2609240832':304, '2609240806':214, '2609240811':188, '2609240631':166, '2609240849':160, '2609240638':147, '2609240621':140, '2609240632':139
+  /timetable/s/dp@dc  n=153  '1':153
+  /timetable/s/dp@fb  n=40,280  'RE1':2050, 'S1':2044, 'S11':1913, 'RE19':1705, 'RE5':1659, 'RE6':1218, 'S12':992, 'RE7':615
+  /timetable/s/dp@hi  n=783  '1':783
+  /timetable/s/dp@l  n=153,018  'RE1':15340, 'S11':11107, 'RE5':10663, 'S1':10091, 'RE6':9986, 'S6':7956, 'RE19':6823, 'S19':6413
+  /timetable/s/dp@pde  n=547  'Düren':114, 'Liège-Saint-Lambert':108, 'Vise':108, 'Trier Hbf':103, 'Maastricht':87, 'Gerolstein':21, 'Liège-Guillemins':6
+  /timetable/s/dp@pp  n=39,487  '12':2966, '6':2738, '2':2669, '10 A-B':2200, '11 B-C':2116, '11':1980, '7':1861, '13':1711
+  /timetable/s/dp@ppth  n=40,280  'Düsseldorf Flughafen|Düsseldorf Hbf':1403, 'Köln Hbf':1263, 'Köln Messe/Deutz':1057, 'Düsseldorf Hbf|Köln Hbf':657, 'Düsseldorf Wehrhahn|Düsseldorf-Zoo|Düsseld ...
+  /timetable/s/dp@pt  n=40,280  '2609241756':158, '2609241743':152, '2609241714':137, '2609240550':101, '2609240608':88, '2609241053':86, '2609241444':85, '2609240526':73
+  /timetable/s/dp@tra  n=8  '48629944751810314-2609240517-4':4, '48629944751810314-2609250517-4':4
+  /timetable/s/dp@wings  n=1,335  '75920702690070939-2609241626':85, '-7870079253414057442-2609241216':82, '-6909245570628159282-2609241316':78, '8958176728424656021-2609241716':69, '-3466705818 ...
+  /timetable/s/dp/m@c  n=336,821  '0':194160, '43':27671, '48':22784, '45':11213, '31':9134, '47':8083, '51':5718, '34':5129
+  /timetable/s/dp/m@id  n=336,821  'r72790866':144, 'r72790868':144, 'r72790636':126, 'r72789010':102, 'r72790817':83, 'r72790819':83, 'r72790771':69, 'r72790773':69
+  /timetable/s/dp/m@t  n=336,821  'f':198300, 'd':125952, 'q':12569
+  /timetable/s/dp/m@ts  n=336,821  '2609231429':2596, '2609231900':1590, '2609240052':1032, '2609240049':960, '2609240104':858, '2609240306':782, '2609240456':642, '2609240430':546
+  /timetable/s/dp/m@ts-tts  n=336,821  '26-09-23 14:29:10.850':2360, '26-09-24 00:49:16.981':960, '26-09-24 03:06:24.351':782, '26-09-24 04:30:23.993':546, '26-09-23 14:35:10.386':520, '26-09-24 05:2 ...
+  /timetable/s/m@cat  n=173,452  'Bauarbeiten. (Quelle: zuginfo.nrw)':68510, 'Information. (Quelle: zuginfo.nrw)':35172, 'Störung. (Quelle: zuginfo.nrw)':31401, 'Information':24164, 'Störung':1 ...
+  /timetable/s/m@from  n=173,790  '2609210000':17071, '2609042100':15420, '2609220000':12408, '2609171100':4332, '2609100000':4230, '2609211700':3799, '2608212100':3332, '2609120800':2234
+  /timetable/s/m@id  n=217,955  'r2677644':12340, 'r2659777':4332, 'r2659770':3799, 'r2666113':3529, 'r2666120':1810, 'r2682883':1086, 'r2611091':1041, 'r2659761':975
+  /timetable/s/m@pr  n=173,452  '2':84727, '3':45069, '1':43656
+  /timetable/s/m@t  n=217,955  'h':173452, 'c':44165, 'r':338
+  /timetable/s/m@to  n=173,790  '2609302359':12610, '2610022330':12096, '2610092100':10533, '2609271000':4332, '2609292359':4230, '2610011800':3799, '2612042000':3332, '2610141900':2234
+  /timetable/s/m@ts  n=217,955  '2609212305':12408, '2609032305':10145, '2609202305':9112, '2609202304':6717, '2609182304':4332, '2609092305':4230, '2608202306':3332, '2609112303':3097
+  /timetable/s/m@ts-tts  n=217,955  '26-09-24 04:58:58.120':597, '26-09-24 00:50:18.108':504, '26-09-24 04:46:12.560':465, '26-09-24 04:57:41.525':457, '26-09-24 00:06:21.085':335, '26-09-23 22:16 ...
+  /timetable/s/ref/tl@c  n=478  'S':478
+  /timetable/s/ref/tl@f  n=478  'S':478
+  /timetable/s/ref/tl@n  n=478  '31184':22, '31186':22, '31180':21, '31182':21, '33158':20, '33154':20, '33153':20, '33150':20
+  /timetable/s/ref/tl@o  n=478  '8003S':318, '800337':160
+  /timetable/s/ref/tl@t  n=478  'p':478
+  /timetable/s/tl@c  n=52,839  'ICE':13432, 'S':11504, 'NX':8108, 'Bus':4318, 'VIA':3363, 'RE':3265, 'RB':3246, 'RRB':1418
+  /timetable/s/tl@f  n=35,657  'F':14019, 'S':11504, 'N':6511, 'D':3623
+  /timetable/s/tl@n  n=52,839  '2542':476, '842':401, '542':337, '2453':261, '2800':225, '22':198, '21320':161, '21305':161
+  /timetable/s/tl@o  n=52,839  '80':10394, 'NXRE':8280, '8003S':6349, 'R4NRN':3035, 'NX':2866, 'NZ':2753, '800337':2728, '8003L1':1955
+  /timetable/s/tl@t  n=52,839  'p':48194, 's':4167, 'e':478
+  /timetable/s/tl@tn  n=640  'TCS':640
+
+== 4. Stops containing focus elements ==
+  fchg  m         96,126
+  fchg  ref          430
+  rchg  m         79,350
+  rchg  ref           48
+
+== 5. Connection elements <conn>: status values (cs) ==
+  none found
+
+== 6. Messages <m> by source, position and type ==
+  fchg  ar  t=d       59,838
+  fchg  ar  t=f       67,480
+  fchg  ar  t=q        6,482
+  fchg  dp  t=d       50,531
+  fchg  dp  t=f      103,088
+  fchg  dp  t=q        6,434
+  fchg  s   t=c       23,943
+  fchg  s   t=h      108,494
+  fchg  s   t=r          148
+  rchg  ar  t=d      100,633
+  rchg  ar  t=f       89,265
+  rchg  ar  t=q        7,745
+  rchg  dp  t=d       75,421
+  rchg  dp  t=f       95,212
+  rchg  dp  t=q        6,135
+  rchg  s   t=c       20,222
+  rchg  s   t=h       64,958
+  rchg  s   t=r          190
+Most common delay/free-text codes (type, code): count
+  f:    0   346,896
+  d:   43    63,387
+  d:   48    49,388
+  d:   45    27,374
+  d:   31    19,604
+  d:   47    18,957
+  d:   51    12,257
+  d:   38    11,356
+  d:   34    11,152
+  d:   36    10,048
+  d:   55     9,987
+  f: 1000     8,149
+  d:    7     6,191
+  d:   41     5,966
+  d:   99     4,988
+  d:    2     4,138
+  d:    3     3,992
+  d:   24     3,629
+  d:   33     2,918
+  d:   44     2,682
+
+== 7. Examples of stops with <conn>, <ref> or <rtr> (truncated) ==
+--- ref example 1
+<s id="8688782780844359606-2609242048-9" eva="8000085">
+    <ar ppth="Solingen Hbf|Solingen Vogelpark|Hilden Süd|Hilden|Düsseldorf-Eller|Düsseldorf-Eller Mitte|Düsseldorf-Oberbilk|Düsseldorf Volksgarten" pt="2609242154" l="S1" fb="Bus S1" />
+    <tl t="e" o="B2" c="Bus" n="311891" />
+    <ref>
+        <tl f="S" t="p" o="800337" c="S" n="31189" />
+    </ref>
+</s>
+
+
+
+--- ref example 2
+<s id="8364922854280939789-2609242030-1" eva="8000085">
+    <dp ppth="Düsseldorf Volksgarten|Düsseldorf-Oberbilk|Düsseldorf-Eller Mitte|Düsseldorf-Eller|Hilden|Hilden Süd|Solingen Vogelpark|Solingen Hbf" pt="2609242030" l="S1" fb="Bus S1" />
+    <tl t="e" o="B2" c="Bus" n="311781" />
+    <ref>
+        <tl f="S" t="p" o="800337" c="S" n="31178" />
+    </ref>
+</s>
+
+
+
+--- ref example 3
+<s id="6862311787790529893-2609241948-9" eva="8000085">
+    <ar ppth="Solingen Hbf|Solingen Vogelpark|Hilden Süd|Hilden|Düsseldorf-Eller|Düsseldorf-Eller Mitte|Düsseldorf-Oberbilk|Düsseldorf Volksgarten" pt="2609242054" l="S1" fb="Bus S1" />
+    <tl t="e" o="B2" c="Bus" n="311851" />
+    <ref>
+        <tl f="S" t="p" o="800337" c="S" n="31185" />
+    </ref>
+</s>
+
+
+

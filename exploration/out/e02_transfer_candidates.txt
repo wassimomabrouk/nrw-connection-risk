@@ -1,0 +1,197 @@
+
+== 1. Planned events from plan responses ==
+rows: 8,895, stops: 5,791, planned times 2026-09-24 03:00:00 to 2026-09-25 09:05:00 (local)
+    eva            hub   ar   dp
+8000001     Aachen Hbf  368  397
+8000085 Düsseldorf Hbf 1103 1125
+8000086   Duisburg Hbf  846  858
+8000098      Essen Hbf  619  634
+8000207       Köln Hbf 1453 1492
+Train categories (share of events):
+cat  pct
+  S 34.8
+ NX 15.4
+ICE 10.6
+ RB 10.4
+ RE  7.2
+Bus  6.4
+VIA  4.2
+  R  3.3
+RRB  2.6
+ IC  1.3
+ TR  1.2
+EUR  0.8
+TRI  0.6
+ERB  0.5
+FLX  0.5
+
+== 1b. Realtime coverage: share of planned events that ever received a prognosis (ct) in fchg ==
+ is_bus  pct_with_ct
+  False         99.0
+   True          9.5
+
+== 2. Funnel for service day 2026-09-24 (window 4-30 min) ==
+                step  Köln Hbf  Düsseldorf Hbf  Duisburg Hbf  Essen Hbf  Aachen Hbf  total
+ all pairs in window     30316           18780         10889       5656        2184  67825
+        after R1 bus     30316           18316          5390       5622        2178  61822
+  after R2 same trip     30075           18279          5359       5622        2163  61498
+ after R3 transition     30075           18279          5359       5622        2163  61498
+      after R4 wings     30075           18279          5359       5622        2163  61498
+  after R5 backtrack     21681           15083          3940       4418        1431  46553
+  after R6 redundant     19699           14560          3765       4196        1424  43644
+after R7 first-reach     16083           11859          3150       3469        1309  35870
+Arrivals with at least one remaining candidate: 3,356 of 3,624
+Candidates per such arrival: median 11
+
+== 3. Remaining candidates: slack distribution (minutes) ==
+index   slack
+count 35870.0
+ mean    15.7
+  std     7.5
+  min     4.0
+  10%     6.0
+  25%     9.0
+  50%    15.0
+  75%    22.0
+  90%    27.0
+  max    30.0
+
+== 4. Remaining candidates: category combinations (A -> B), share % ==
+    index  pct
+   S -> S  9.9
+  S -> NX  8.4
+ S -> ICE  6.2
+  NX -> S  5.4
+ ICE -> S  4.4
+NX -> ICE  3.3
+  S -> RE  3.2
+ICE -> NX  2.8
+  S -> RB  2.7
+ NX -> NX  2.6
+  RE -> S  2.5
+  RB -> S  2.5
+ RB -> NX  2.0
+ S -> VIA  1.9
+   R -> S  1.7
+
+== 5. Remaining candidates: most common line pairs per hub ==
+Köln Hbf: S11 -> S19 (126), S19 -> S11 (120), S12 -> S19 (118), S12 -> S11 (116), S6 -> S19 (115), S6 -> S11 (113)
+Düsseldorf Hbf: S1 -> S8 (213), S8 -> S1 (190), S28 -> S1 (187), S11 -> S8 (152), S28 -> S11 (148), S1 -> S11 (146)
+Duisburg Hbf: RE19 -> RE1 (80), RE1 -> RE19 (78), RE19 -> RB31 (67), RE19 -> RE42 (64), S1 -> RE6 (48), S1 -> RB31 (46)
+Essen Hbf: S1 -> S9 (104), S6 -> S9 (98), S1 -> S6 (94), S6 -> S3 (83), S3 -> S9 (75), S1 -> S3 (66)
+Aachen Hbf: RB20 -> RE18 (115), RB20 -> S41 (63), RB33 -> RB20 (62), RB20 -> RB33 (62), RE18 -> RB20 (56), S41 -> RB20 (47)
+
+== 6. Examples removed by each rule (paths shortened) ==
+--- R1 bus
+         eva     pt_a cat_a line_a              path_a     pt_b cat_b line_b                                                   path_b  slack
+Duisburg Hbf 24 07:59   VIA   RE19   Oberhausen Hbf <- 24 08:05   Bus    RE1 -> Mülheim(Ruhr)Hbf|Essen Hbf Kruppstraße/Am Thyssenhaus    6.0
+Duisburg Hbf 24 11:40    NX    RE5   Oberhausen Hbf <- 24 12:05   Bus    RE1 -> Mülheim(Ruhr)Hbf|Essen Hbf Kruppstraße/Am Thyssenhaus   25.0
+Duisburg Hbf 24 12:45    NX    RE6   Oberhausen Hbf <- 24 13:10   Bus    RE1 -> Mülheim(Ruhr)Hbf|Essen Hbf Kruppstraße/Am Thyssenhaus   25.0
+Duisburg Hbf 24 08:28     S     S1 Duisburg-Schlenk <- 24 08:35   Bus    RE1 -> Mülheim(Ruhr)Hbf|Essen Hbf Kruppstraße/Am Thyssenhaus    7.0
+--- R2 same trip
+         eva     pt_a cat_a line_a            path_a     pt_b cat_b line_b                             path_b  slack
+Duisburg Hbf 25 00:02    NX    RE6      Neuss Hbf <- 25 00:15    NX    RE6 -> Oberhausen Hbf|Essen-Altenessen   13.0
+    Köln Hbf 24 09:12    RE    RE9 Köln-Ehrenfeld <- 24 09:22    RE    RE9    -> Köln Messe/Deutz|Porz(Rhein)   10.0
+    Köln Hbf 24 06:00    RE    RE8 Köln-Ehrenfeld <- 24 06:04    RE    RE8                -> Köln Messe/Deutz    4.0
+    Köln Hbf 24 22:44    NX    RE1 Köln-Ehrenfeld <- 24 22:49    NX    RE1   -> Köln Messe/Deutz|Köln-Mülheim    5.0
+--- R3 transition
+(empty)
+--- R4 wings
+(empty)
+--- R5 backtrack
+           eva     pt_a cat_a line_a                       path_a     pt_b cat_b line_b                                       path_b  slack
+Düsseldorf Hbf 24 11:48     S     S8 Düsseldorf Friedrichstadt <- 24 12:18     S    S11 -> Düsseldorf Friedrichstadt|Düsseldorf-Bilk   30.0
+Düsseldorf Hbf 24 08:54   RRB   RE10           Düsseldorf-Bilk <- 24 08:58     S    S11 -> Düsseldorf Friedrichstadt|Düsseldorf-Bilk    4.0
+      Köln Hbf 24 12:36     S     S6            Köln Hansaring <- 24 12:58     S    S19             -> Köln Hansaring|Köln-Ehrenfeld   22.0
+    Aachen Hbf 24 12:01    RB   RB20         Aachen-Rothe Erde <- 24 12:31    RB   RB20               -> Aachen-Rothe Erde|Eilendorf   30.0
+--- R6 redundant
+     eva     pt_a cat_a line_a            path_a     pt_b cat_b line_b                               path_b  slack
+Köln Hbf 24 10:29     S    S12 Köln Hansaring <- 24 10:50     S    S12 -> Köln Messe/Deutz|Köln Trimbornstr   21.0
+Köln Hbf 24 21:29     S    S12 Köln Hansaring <- 24 21:42    RE   RE22                  -> Köln Messe/Deutz   13.0
+Köln Hbf 24 16:26     S    S11 Köln Hansaring <- 24 16:31    RB   RB38                  -> Köln Messe/Deutz    5.0
+Köln Hbf 24 19:28    NX    RE5       Köln Süd <- 24 19:42    RE   RE22                  -> Köln Messe/Deutz   14.0
+--- R7 first-reach
+           eva     pt_a cat_a line_a                 path_a     pt_b cat_b  line_b                                       path_b  slack
+Düsseldorf Hbf 24 18:50     S     S8 Düsseldorf-Flingern <- 24 19:11   ICE ICE 546                                  -> Köln Hbf   21.0
+Düsseldorf Hbf 24 18:45     R    S28 Düsseldorf-Flingern <- 24 19:11   ICE ICE 546                                  -> Köln Hbf   26.0
+Düsseldorf Hbf 24 18:45     R    S28 Düsseldorf-Flingern <- 24 19:12     S      S8 -> Düsseldorf Friedrichstadt|Düsseldorf-Bilk   27.0
+      Köln Hbf 24 11:18    RE   RE22    Köln Messe/Deutz <- 24 11:37    RB    RB25                            -> Köln Hansaring   19.0
+--- kept (random)
+           eva     pt_a cat_a line_a                           path_a     pt_b cat_b  line_b                                                     path_b  slack
+      Köln Hbf 24 18:00    RE    RE8                Köln-Ehrenfeld <- 24 18:07     S     S11                         -> Köln Messe/Deutz|Köln-Buchforst    7.0
+      Köln Hbf 24 19:40   ICE ICE 10 Frankfurt(M) Flughafen Fernbf <- 24 20:10     S     S12                       -> Köln Messe/Deutz|Köln Trimbornstr   30.0
+     Essen Hbf 24 19:32     S     S6                     Essen Süd <- 24 19:40    RE     RE2                -> Gelsenkirchen Hbf|Herne-Wanne-Eickel Hbf    8.0
+Düsseldorf Hbf 24 06:50     S     S8           Düsseldorf-Flingern <- 24 07:03   ICE ICE 913 -> Köln Messe/Deutz Gl.11-12|Frankfurt(M) Flughafen Fernbf   13.0
+  Duisburg Hbf 24 07:31   RRB   RB31                   Rheinhausen <- 24 07:44   VIA    RE19                     -> Oberhausen Hbf|Oberhausen-Sterkrade   13.0
+      Köln Hbf 24 05:00     S    S19                Köln Hansaring <- 24 05:30     S     S12                       -> Köln Messe/Deutz|Köln Trimbornstr   30.0
+
+== 7. Stop-level messages of type c (raw examples) ==
+--- example 1
+<s id="2774174590951633862-2609232225-10" eva="8000207">
+    <m id="r2696343" t="h" from="2609232200" to="2609232359" cat="Störung" ts="2609232343" ts-tts="26-09-23 23:43:45.503" pr="1" />
+    <m id="r2126989905" t="c" ts="2609240424" ts-tts="26-09-24 04:24:39.999" />
+    <m id="r2126989906" t="c" ts="2609240424" ts-tts="26-09-24 04:24:39.999" />
+    <m id="r2126989902" t="c" ts="2609240409" ts-tts="26-09-24 04:09:09.215" />
+    <m id="r2126989903" t="c" ts="2609240409" ts-tts="26-09-24 04:09:09.215" />
+    <ar ppth="Hamburg-Altona|Hamburg Dammtor|Hamburg Hbf|Hamburg-Harburg|Bremen Hbf|Osnabrück Hbf|Münster(Westf)Hbf|Düsseldorf Flughafen|Düsseldorf Hbf" pp="5" ct="2609240431" pt="2609240315" fb="ICE 921">
+        <m id="r72780004" t="f" c="0" ts="2609232228" ts-tts="26-09-23 22:29:05.287" />
+        <m id="r72780005" t="f" c="0" ts="2609232228" ts-tts="26-09-23 22:29:05.287" />
+        <m id="r72787480" t="d" c="31" ts="2609240117" ts-tts="26-09-24 01:17:39.738" />
+        <m id="r72787482" t="d" c="31" ts="2609240117" ts-tts="26-09-24 01:17:39.738" />
+        <m id="r72788920" t="d" c="34" ts="2609240246" ts-tts="26-09-24 02:47:07.293" />
+        <m id="r72788922" t="d" c="34" ts=
+--- example 2
+<s id="-4737482986446738332-2609231947-11" eva="8000207">
+    <m id="r2122314851" t="c" ts="2609240058" ts-tts="26-09-24 00:58:12.239" />
+    <m id="r2122314851alt" t="c" ts="2609240058" ts-tts="26-09-24 00:58:12.352" />
+    <ar ppth="Berlin Hbf|Berlin-Spandau|Wolfsburg Hbf|Hannover Hbf|Bielefeld Hbf|Hamm(Westf)Hbf|Dortmund Hbf|Duisburg Hbf|Düsseldorf Flughafen|Düsseldorf Hbf" cp="1" pp="7 D-G" ct="2609240135" pt="2609240034" fb="ICE 842">
+        <m id="r72761039" t="d" c="47" ts="2609231911" ts-tts="26-09-23 19:11:25.924" />
+        <m id="r72761041" t="d" c="47" ts="2609231911" ts-tts="26-09-23 19:11:25.924" />
+        <m id="r72764278" t="f" c="0" ts="2609231938" ts-tts="26-09-23 19:38:57.175" />
+        <m id="r72764279" t="f" c="0" ts="2609231938" ts-tts="26-09-23 19:38:57.175" />
+        <m id="r72766840" t="f" c="0" ts="2609232003" ts-tts="26-09-23 20:03:21.876" />
+        <m id="r72766841" t="f" c="0" ts="2609232003" ts-tts="26-09-23 20:03:21.876" />
+        <m id="r72783182" t="f" c="0" ts="2609232327" ts-tts="26-09-23 23:28:03.627" />
+        <m id="r72783183" t="f" c="0" ts="2609232327" ts-tts="26-09-23 23:28:03.627" />
+        <m id="r72785000" t="d" c="31" ts="2609240
+--- example 3
+<s id="3337083331722830688-2609231932-9" eva="8000207">
+    <m id="r2696290" t="h" from="2609231830" to="2609232200" cat="Störung" ts="2609232024" ts-tts="26-09-23 20:24:23.354" pr="1" />
+    <m id="r2122314850" t="c" ts="2609240057" ts-tts="26-09-24 00:57:11.148" />
+    <m id="r2122314849" t="c" ts="2609240057" ts-tts="26-09-24 00:57:11.148" />
+    <ar ppth="Nürnberg Hbf|Würzburg Hbf|Hanau Hbf|Frankfurt(Main)Hbf|Frankfurt(M) Flughafen Fernbf|Mainz Hbf|Koblenz Hbf|Bonn Hbf" cp="2" pp="4 A-C" ct="2609240118" pt="2609240006" fb="ICE 22">
+        <m id="r72764137" t="d" c="3" ts="2609231936" ts-tts="26-09-23 19:36:52.768" />
+        <m id="r72764139" t="d" c="3" ts="2609231936" ts-tts="26-09-23 19:36:52.768" />
+        <m id="r72764186" t="f" c="0" ts="2609231937" ts-tts="26-09-23 19:37:39.329" />
+        <m id="r72764187" t="f" c="0" ts="2609231937" ts-tts="26-09-23 19:37:39.329" />
+        <m id="r72766657" t="f" c="0" ts="2609232000" ts-tts="26-09-23 20:01:01.724" />
+        <m id="r72778619" t="d" c="7" ts="2609232205" ts-tts="26-09-23 22:05:51.337" />
+        <m id="r72778621" t="d" c="7" ts="2609232205" ts-tts="26-09-23 22:05:51.337" />
+        <m id="r72778675" t="f" c="0" ts="
+--- example 4
+<s id="-6524998557445987060-2609231844-11" eva="8000207">
+    <m id="r2696290" t="h" from="2609231830" to="2609232200" cat="Störung" ts="2609232024" ts-tts="26-09-23 20:24:23.354" pr="1" />
+    <m id="r2696306" t="h" from="2609232000" to="2609232300" cat="Störung" ts="2609232211" ts-tts="26-09-23 22:11:31.888" pr="1" />
+    <m id="r2122314831" t="c" ts="2609240032" ts-tts="26-09-24 00:32:11.078" />
+    <m id="r2122314830" t="c" ts="2609240032" ts-tts="26-09-24 00:32:11.078" />
+    <m id="r2122314832" t="c" ts="2609240032" ts-tts="26-09-24 00:32:11.078" />
+    <ar ppth="München Hbf|Nürnberg Hbf|Würzburg Hbf|Aschaffenburg Hbf|Frankfurt(Main)Hbf|Frankfurt(M) Flughafen Fernbf|Limburg Süd|Montabaur|Siegburg/Bonn|Köln/Bonn Flughafen" pp="6" ct="2609240118" pt="2609232339" fb="ICE 524">
+        <m id="r72756034" t="q" c="90" ts="2609231829" ts-tts="26-09-23 18:30:05.799" />
+        <m id="r72756972" t="d" c="51" ts="2609231836" ts-tts="26-09-23 18:36:51.486" />
+        <m id="r72756974" t="d" c="51" ts="2609231836" ts-tts="26-09-23 18:36:51.486" />
+        <m id="r72777819" t="d" c="7" ts="2609232155" ts-tts="26-09-23 21:55:16.385" />
+        <m id="r72777821" t="d" c="7" ts="2609232155" 
+--- example 5
+<s id="-4383803236760390820-2609231945-12" eva="8000207">
+    <m id="r2696290" t="h" from="2609231830" to="2609232200" cat="Störung" ts="2609232024" ts-tts="26-09-23 20:24:23.354" pr="1" />
+    <m id="r2122314834alt" t="c" ts="2609240032" ts-tts="26-09-24 00:32:11.176" />
+    <m id="r2122314834" t="c" ts="2609240032" ts-tts="26-09-24 00:32:11.078" />
+    <m id="r2122314833" t="c" ts="2609240032" ts-tts="26-09-24 00:32:11.078" />
+    <ar ppth="München Hbf|Ingolstadt Hbf|Nürnberg Hbf|Würzburg Hbf|Aschaffenburg Hbf|Hanau Hbf|Frankfurt(Main)Hbf|Frankfurt(M) Flughafen Fernbf|Limburg Süd|Montabaur|Siegburg/Bonn" pp="5" ct="2609240110" pt="2609240031" fb="ICE 522">
+        <m id="r72783576" t="d" c="31" ts="2609232337" ts-tts="26-09-23 23:37:20.433" />
+        <m id="r72783578" t="d" c="31" ts="2609232337" ts-tts="26-09-23 23:37:20.433" />
+        <m id="r72783584" t="d" c="31" ts="2609232337" ts-tts="26-09-23 23:37:20.433" />
+        <m id="r72783580" t="d" c="31" ts="2609232337" ts-tts="26-09-23 23:37:20.433" />
+        <m id="r72785870" t="f" c="0" ts="2609240032" ts-tts="26-09-24 00:32:11.172" />
+        <m id="r72786713" t="d" c="45" ts="2609240052" ts-tts="26-09-24 00:52:51.320" />
+
