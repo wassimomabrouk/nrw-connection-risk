@@ -1,0 +1,29 @@
+
+== 1. Sanity check against e03 ==
+candidates observed: 35,849, failure rate: 22.13 %  (must equal e03)
+collector data starts at 2026-09-24 05:23:53.775458 local; cutoffs before that are excluded
+
+== 2. Planned slack vs DB prognosis, by prediction cutoff ==
+ cutoff_min  candidates  fail_pct  auc_planned_slack  auc_db_slack  db_rule_precision  db_rule_recall  known_B_cancel_pct  mae_a_arrival_min
+         60       33040     21.82              0.665         0.812              0.841           0.394                1.07               6.76
+         30       33766     21.23              0.669         0.873              0.840           0.574                1.58               5.35
+         10       34186     20.79              0.672         0.914              0.850           0.723                2.04               3.97
+AUC 0.5 = no better than chance, 1.0 = perfect ranking of failing before holding connections.
+mae_a_arrival_min: mean absolute error of DB's arrival prognosis for A at the cutoff vs the final time.
+
+== 3. At the 30-minute cutoff, by segment and hub (groups with 200+ candidates) ==
+     by                          group  candidates  fail_pct  auc_planned  auc_db
+segment               S-Bahn -> S-Bahn        3303      11.8        0.685   0.755
+segment        S-Bahn -> long-distance        2660      12.2        0.644   0.820
+segment             S-Bahn -> regional        6553      13.3        0.696   0.795
+segment        long-distance -> S-Bahn        1982      47.7        0.655   0.896
+segment long-distance -> long-distance         797      30.2        0.639   0.928
+segment      long-distance -> regional        2954      39.1        0.688   0.926
+segment             regional -> S-Bahn        5144      27.0        0.655   0.845
+segment      regional -> long-distance        3556      15.5        0.641   0.875
+segment           regional -> regional        6817      19.1        0.689   0.885
+    hub                     Aachen Hbf        1289      16.8        0.680   0.866
+    hub                   Duisburg Hbf        2921      23.8        0.645   0.874
+    hub                 Düsseldorf Hbf       11168      21.4        0.663   0.880
+    hub                      Essen Hbf        3273      20.6        0.715   0.792
+    hub                       Köln Hbf       15115      21.1        0.672   0.883

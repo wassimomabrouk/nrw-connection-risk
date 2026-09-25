@@ -126,6 +126,75 @@ def load_plan(raw_root: Path) -> tuple[pd.DataFrame, list[str]]:  # noqa: C901
     return df, c_examples
 
 
+def build_candidates(df: pd.DataFrame, t0, t1, min_slack: int = 4, max_slack: int = 30):
+    """Apply the transfer-candidate rules (DESIGN.md section 1) to planned events.
+
+    Returns (candidates, arrivals, funnel rows, examples of removed pairs)."""
+    dep_of_stop = df[df.event == "dp"].set_index("stop_id")["path"]
+    A = df[(df.event == "ar") & (df.pt >= t0) & (df.pt < t1)].copy()
+    B = df[df.event == "dp"].copy()
+    A["cont_path"] = A.stop_id.map(dep_of_stop)
+
+    # bucketed join: a departure within 30 min of an arrival lies in the same or next hour
+    assert max_slack <= 60
+    A["hkey"] = A.pt.dt.floor("h")
+    A2 = pd.concat([A, A.assign(hkey=A.hkey + pd.Timedelta(hours=1))], ignore_index=True)
+    B["hkey"] = B.pt.dt.floor("h")
+    pairs = A2.merge(B, on=["eva", "hkey"], suffixes=("_a", "_b"))
+    pairs["slack"] = (pairs.pt_b - pairs.pt_a).dt.total_seconds() / 60
+    pairs = pairs[(pairs.slack >= min_slack) & (pairs.slack <= max_slack)].copy()
+
+    def backtrack(r) -> bool:
+        prev = path(r.path_a)
+        return bool(prev) and prev[-1] in set(path(r.path_b))
+
+    def redundant(r) -> bool:
+        cont = set(path(r.cont_path))
+        nxt = set(path(r.path_b))
+        return bool(cont) and bool(nxt) and nxt <= cont
+
+    def wings(r) -> bool:
+        return (r.trip_b in set(path(r.wings_a))) or (r.trip_a in set(path(r.wings_b)))
+
+    def transition(r) -> bool:
+        return isinstance(r.tra_a, str) and (r.tra_a == r.stop_id_b or trip_key(r.tra_a) == r.trip_b)
+
+    rules = [
+        ("R1 bus", lambda r: r.cat_a == "Bus" or r.cat_b == "Bus"),
+        ("R2 same trip", lambda r: r.trip_a == r.trip_b),
+        ("R3 transition", transition),
+        ("R4 wings", wings),
+        ("R5 backtrack", backtrack),
+        ("R6 redundant", redundant),
+    ]
+    funnel, examples = [], {}
+    keep = pairs
+    funnel.append({"step": "all pairs in window", **per_hub(keep)})
+    for name, fn in rules:
+        mask = keep.apply(fn, axis=1) if len(keep) else pd.Series(dtype=bool)
+        examples[name] = keep[mask].sample(min(4, int(mask.sum())), random_state=0) if mask.any() else keep.head(0)
+        keep = keep[~mask] if len(keep) else keep
+        funnel.append({"step": f"after {name}", **per_hub(keep)})
+
+    # R7 first reach: per arrival, walk departures in time order; keep B only if it is
+    # the first to reach some station that A has neither passed nor will serve itself
+    keep_idx, drop_idx = [], []
+    for _, g in keep.sort_values("pt_b").groupby("stop_id_a", sort=False):
+        first = g.iloc[0]
+        covered = set(path(first.path_a)) | set(path(first.cont_path))
+        for idx, r in g.iterrows():
+            new = set(path(r.path_b)) - covered
+            if new:
+                keep_idx.append(idx)
+                covered |= new
+            else:
+                drop_idx.append(idx)
+    examples["R7 first-reach"] = keep.loc[drop_idx].sample(min(4, len(drop_idx)), random_state=0) if drop_idx else keep.head(0)
+    keep = keep.loc[keep_idx]
+    funnel.append({"step": "after R7 first-reach", **per_hub(keep)})
+    return keep, A, funnel, examples
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", type=Path, default=ROOT / "data" / "restore" / "raw")
@@ -154,74 +223,8 @@ def main() -> None:
     cov = day_df.assign(is_bus=day_df.cat.eq("Bus")).groupby("is_bus").has_ct.mean().mul(100).round(1)
     rep.table(cov.rename("pct_with_ct").reset_index())
 
-    # attach A's own past and continuation (its departure at the same stop) for R5 to R7
-    dep_of_stop = df[df.event == "dp"].set_index("stop_id")["path"]
-    A = df[(df.event == "ar") & (df.pt >= t0) & (df.pt < t1)].copy()
-    B = df[df.event == "dp"].copy()
-    A["cont_path"] = A.stop_id.map(dep_of_stop)
-
-    # bucketed join: a departure within 30 min of an arrival lies in the same or next hour
-    assert args.max_slack <= 60
-    A["hkey"] = A.pt.dt.floor("h")
-    A2 = pd.concat([A, A.assign(hkey=A.hkey + pd.Timedelta(hours=1))], ignore_index=True)
-    B["hkey"] = B.pt.dt.floor("h")
-    pairs = A2.merge(B, on=["eva", "hkey"], suffixes=("_a", "_b"))
-    pairs["slack"] = (pairs.pt_b - pairs.pt_a).dt.total_seconds() / 60
-    pairs = pairs[(pairs.slack >= args.min_slack) & (pairs.slack <= args.max_slack)].copy()
-    n_days = 1  # exactly one service day by construction
-
-    def backtrack(r) -> bool:
-        prev = path(r.path_a)
-        return bool(prev) and prev[-1] in set(path(r.path_b))
-
-    def redundant(r) -> bool:
-        cont = set(path(r.cont_path))
-        nxt = set(path(r.path_b))
-        return bool(cont) and bool(nxt) and nxt <= cont
-
-    def wings(r) -> bool:
-        wa = set(path(r.wings_a))
-        wb = set(path(r.wings_b))
-        return (r.trip_b in wa) or (r.trip_a in wb)
-
-    def transition(r) -> bool:
-        return isinstance(r.tra_a, str) and (r.tra_a == r.stop_id_b or trip_key(r.tra_a) == r.trip_b)
-
-    rules = [
-        ("R1 bus", lambda r: r.cat_a == "Bus" or r.cat_b == "Bus"),
-        ("R2 same trip", lambda r: r.trip_a == r.trip_b),
-        ("R3 transition", transition),
-        ("R4 wings", wings),
-        ("R5 backtrack", backtrack),
-        ("R6 redundant", redundant),
-    ]
-
+    keep, A, funnel, examples = build_candidates(df, t0, t1, args.min_slack, args.max_slack)
     rep.h(f"2. Funnel for service day {args.day} (window {args.min_slack}-{args.max_slack} min)")
-    funnel = []
-    examples = {}
-    keep = pairs
-    funnel.append({"step": "all pairs in window", **per_hub(keep, n_days)})
-    for name, fn in rules:
-        mask = keep.apply(fn, axis=1) if len(keep) else pd.Series(dtype=bool)
-        examples[name] = keep[mask].sample(min(4, int(mask.sum())), random_state=0) if mask.any() else keep.head(0)
-        keep = keep[~mask] if len(keep) else keep
-        funnel.append({"step": f"after {name}", **per_hub(keep, n_days)})
-    # R7 first-reach: per arrival, walk departures in time order; keep B only if it is
-    # the first to reach some station that A has neither passed nor will serve itself
-    keep_idx, drop_idx = [], []
-    for _, g in keep.sort_values("pt_b").groupby("stop_id_a", sort=False):
-        first = g.iloc[0]
-        covered = set(path(first.path_a)) | set(path(first.cont_path))
-        for idx, r in g.iterrows():
-            new = set(path(r.path_b)) - covered
-            if new:
-                keep_idx.append(idx)
-                covered |= new
-            else:
-                drop_idx.append(idx)
-    examples["R7 first-reach"] = keep.loc[drop_idx].sample(min(4, len(drop_idx)), random_state=0) if drop_idx else keep.head(0)
-    keep = keep.loc[keep_idx]
-    funnel.append({"step": "after R7 first-reach", **per_hub(keep, n_days)})
     rep.table(pd.DataFrame(funnel))
     rep.say(f"Arrivals with at least one remaining candidate: {keep.stop_id_a.nunique():,} of {A.stop_id.nunique():,}")
     rep.say(f"Candidates per such arrival: median {keep.groupby('stop_id_a').size().median():.0f}")
@@ -262,9 +265,9 @@ def main() -> None:
     print(f"\nReport written to {p}")
 
 
-def per_hub(df: pd.DataFrame, n_days: int) -> dict:
-    out = {HUBS[e]: round(int((df.eva == e).sum()) / n_days) for e in HUBS}
-    out["total"] = round(len(df) / n_days)
+def per_hub(df: pd.DataFrame) -> dict:
+    out = {HUBS[e]: int((df.eva == e).sum()) for e in HUBS}
+    out["total"] = len(df)
     return out
 
 

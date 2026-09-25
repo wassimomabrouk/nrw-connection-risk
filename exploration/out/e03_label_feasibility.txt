@@ -1,0 +1,86 @@
+
+== 1. Observability (service day 2026-09-24, 35,870 candidates) ==
+candidates with both events observed: 99.9 %
+last observation before the event (stale): arrivals 0.00 %, departures 0.00 %
+observations per event, median: arrivals 40, departures 38
+
+== 2. Label (minimum transfer time 4 min) ==
+connection fails: 22.13 %  (by delay 16.59 %, B cancelled 2.89 %, A cancelled 2.64 %)
+Sensitivity to the minimum transfer time (failure rate %):
+ mtt  fail_pct
+   3     20.85
+   4     22.13
+   5     23.97
+   7     28.87
+
+== 3. Failure rate by planned slack ==
+planned_slack  candidates  fail_pct  delay_fail_pct
+          4-5        2973     46.35           40.60
+          6-7        3320     36.11           31.36
+          8-9        3247     27.93           22.67
+        10-14        7093     23.54           17.96
+        15-19        7324     16.52           10.96
+        20-30       11892     13.19            7.47
+
+== 4. Failure rate by hub ==
+           hub  candidates  fail_pct  delay_fail_pct
+    Aachen Hbf        1309     17.19           14.51
+  Duisburg Hbf        3129     25.60           18.02
+Düsseldorf Hbf       11859     22.73           16.92
+     Essen Hbf        3469     21.27           13.78
+      Köln Hbf       16083     21.59           16.85
+
+== 5. Failure rate by segment (A -> B) ==
+                       segment  candidates  fail_pct  delay_fail_pct
+              S-Bahn -> S-Bahn        3566     13.01            7.57
+       S-Bahn -> long-distance        2860     12.90            6.29
+            S-Bahn -> regional        7024     14.32            8.58
+       long-distance -> S-Bahn        2105     48.60           40.95
+long-distance -> long-distance         844     31.52           24.76
+     long-distance -> regional        3093     39.96           35.66
+            regional -> S-Bahn        5420     27.79           21.70
+     regional -> long-distance        3758     16.68           11.26
+          regional -> regional        7179     19.99           15.64
+
+== 6. Failure rate by hour of planned arrival ==
+ hour  candidates  fail_pct  delay_fail_pct
+    0         278     35.25           22.30
+    1          67     20.90           11.94
+    2          21     38.10            9.52
+    3          32     21.88           18.75
+    4         266      7.89            4.89
+    5        1362     13.95           12.70
+    6        1911     17.53           11.51
+    7        2193     18.97           14.04
+    8        2387     16.63           13.78
+    9        2124     23.40           15.77
+   10        1975     23.95           14.78
+   11        1978     20.98           15.67
+   12        2162     23.08           16.28
+   13        2100     19.24           16.86
+   14        2048     17.82           14.94
+   15        2088     21.02           18.58
+   16        2351     21.27           18.89
+   17        2167     20.26           18.46
+   18        2170     22.35           17.00
+   19        1973     26.41           20.78
+   20        1623     29.94           20.58
+   21        1318     39.23           21.40
+   22         730     32.19           19.32
+   23         525     32.57           21.14
+
+== 7. Delays (minutes, observed and not cancelled) ==
+index  arrival_delay_A  departure_delay_B
+count           3249.0             3102.0
+ mean              8.6                7.2
+  std             14.4               12.8
+  min            -11.0               -3.0
+  50%              4.0                3.0
+  75%             10.0                8.0
+  90%             22.0               18.0
+  95%             34.6               29.0
+  99%             78.0               71.0
+  max            169.0              158.0
+
+== 8. Connections that held although A was later than the planned slack allows ==
+candidates where A's delay alone would break the connection: 9,456; held because B was late too: 37.1 %
