@@ -15,10 +15,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+data = ["duckdb>=1.1", "pandas>=2.2"]
 dev = ["pytest>=8", "duckdb>=1.1", "pandas>=2.2"]
 
 [project.scripts]
 nrw-collector = "nrw_connection_risk.collector.main:main"
+nrw-dataset = "nrw_connection_risk.dataset.build:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

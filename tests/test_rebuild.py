@@ -23,3 +23,17 @@ def test_rebuild_parsed_from_raw(tmp_path, fchg_xml, plan_xml):
     assert "responses: 2" in res.stdout and "rows: 7" in res.stdout
     files = list((out / "parsed").rglob("*.parquet"))
     assert sum(pq.read_metadata(f).num_rows for f in files) == 7
+
+
+def test_rebuild_refuses_to_append_without_replace(tmp_path, fchg_xml):
+    raw = RawStore(tmp_path / "src")
+    raw.write("fchg", "8000207", ApiResponse("u", 200, fchg_xml,
+                                             datetime(2026, 9, 24, 10, 0, tzinfo=timezone.utc), 1.0))
+    cmd = [sys.executable, str(ROOT / "tools" / "rebuild_parsed.py"),
+           "--raw", str(tmp_path / "src" / "raw"), "--out", str(tmp_path / "out")]
+    subprocess.run(cmd, capture_output=True, text=True, check=True)
+    second = subprocess.run(cmd, capture_output=True, text=True)
+    assert second.returncode != 0 and "--replace" in second.stderr
+    subprocess.run(cmd + ["--replace"], capture_output=True, text=True, check=True)
+    files = list((tmp_path / "out" / "parsed").rglob("*.parquet"))
+    assert sum(pq.read_metadata(f).num_rows for f in files) == 4   # not 8

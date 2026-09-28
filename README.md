@@ -14,12 +14,15 @@ The project therefore collects its own data from the DB Timetables API: recent c
 
 ```
 config/collector.toml            stations, polling intervals, storage settings
+config/dataset.toml              candidate rules, cutoffs and data-quality thresholds for the dataset
 src/nrw_connection_risk/
     collector/                   API client, XML parsing, storage, scheduler, health checks
+    dataset/                     transfer candidates, point-in-time state, labels (training table)
 tests/                           unit and integration tests (pytest)
 tools/                           API smoke test, collection status, raw-to-parsed rebuild
 deploy/                          systemd units for the collector and the daily backup
-docs/                            operations runbook
+docs/                            operations runbook, dataset card
+exploration/                     exploration scripts e01 to e04 and their reports
 section0/                        feasibility scripts on the historical dataset
 ```
 
@@ -44,6 +47,15 @@ python tools/collector_status.py                              summary of collect
 ```
 
 Data is written to `data/collector/`: raw API responses as gzip JSON lines (`raw/`), parsed observations as Parquet (`parsed/`), a heartbeat file and logs.
+
+## Building the training dataset
+
+```
+python tools/rebuild_parsed.py --raw data/restore/raw --out data/restore --replace
+python -m nrw_connection_risk.dataset.build --parsed data/restore/parsed --from 2026-09-24 --to 2026-09-30
+```
+
+One Parquet table per service day: every transfer candidate at the five hubs, DB's prognosis as known 60, 30 and 10 minutes before arrival, and the observed outcome. Details: [docs/DATASET.md](docs/DATASET.md).
 
 ## Data source
 

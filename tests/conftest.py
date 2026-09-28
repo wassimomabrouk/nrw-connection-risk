@@ -36,3 +36,16 @@ def plan_xml():
 @pytest.fixture
 def fchg_xml():
     return FCHG_XML
+
+
+def write_parsed(root, responses):
+    """Parse (source, eva, collected_at, xml) tuples with the production parser into a
+    parsed layer under root/parsed, exactly as the collector would."""
+    from nrw_connection_risk.collector.parse import parse_timetable
+    from nrw_connection_risk.collector.storage import ParsedStore
+
+    store = ParsedStore(root)
+    for source, eva, t, xml in responses:
+        store.add(parse_timetable(xml, source, eva, t))
+    store.flush()
+    return root / "parsed"

@@ -48,3 +48,11 @@ def test_change_rows_delays_messages_cancellations(fchg_xml):
     assert cancelled["cs"] == "c" and cancelled["clt"] is not None
     msg_only = by[("999-2609231800-3", "s")]
     assert msg_only["stop_msgs"] == "h:0"
+
+
+def test_parser_v2_fields():
+    xml = """<timetable station="Köln Hbf"><s id="1-2609241000-5">
+      <ar pt="2609241012" fb="ICE 921" wings="8-2609241000" tra="7-2609241020-1"/></s></timetable>"""
+    r = parse_timetable(xml, "plan", "8000207", T)[0]
+    assert (r["fb"], r["wings"], r["tra"]) == ("ICE 921", "8-2609241000", "7-2609241020-1")
+    assert r["parser_version"] == 2

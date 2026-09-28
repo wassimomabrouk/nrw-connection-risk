@@ -33,6 +33,8 @@ ssh -i KEY ubuntu@HOST "rclone size gdrive:nrw-connection-risk-backup/raw"      
 ssh -i KEY ubuntu@HOST "cd ~/nrw-connection-risk && git pull && .venv/bin/pip install -e . && .venv/bin/python -m pytest -q && sudo systemctl restart nrw-collector"
 ```
 
+After a parser version change (see `PARSER_VERSION` in `collector/parse.py`), parsed files written before the deploy keep the old schema. The dataset builder refuses them; rebuild the parsed layer from raw where a dataset is built.
+
 The service handles SIGTERM: it finishes the current request and flushes buffered rows before stopping, so a restart loses no data. The gap is a few seconds; `fchg` (full state every 30 minutes) repairs anything `rchg` missed.
 
 ## Failure scenarios

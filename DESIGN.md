@@ -1,6 +1,6 @@
 # Design
 
-Status: **draft v0.2 (2026-09-25)**. Sections 1, 2, 4, 5 and 6 are decided; section 3 (features) is written after the feature exploration. The complete document is locked before any model is trained, and later changes are recorded in the change log with their reason.
+Status: **draft v0.3 (2026-09-27)**. Sections 1, 2, 4, 5 and 6 are decided; section 3 (features) is written after the feature exploration. The complete document is locked before any model is trained, and later changes are recorded in the change log with their reason.
 
 ## 1. Unit of prediction: the transfer candidate
 
@@ -37,6 +37,8 @@ For each candidate whose arrival A is not already cancelled at the prediction cu
 - Otherwise the connection **holds**. If DB holds B for a late A, B's actual departure is later and the connection holds; this is observed, not modelled separately.
 
 Actual times are the last prognosis (`ct`) observed after the event. Candidates where A or B never received a realtime value are excluded from training and evaluation. Delay-caused and cancellation-caused failures are also reported separately.
+
+Rows are also excluded if A or B was not yet in the timetable data at the cutoff, if the collector saw nothing at the hub for more than 45 minutes before the cutoff, if the last observation was made before the event, or if a time falls into a DST transition hour. Implementation and definitions: [docs/DATASET.md](docs/DATASET.md).
 
 **Evidence** (service day 2026-09-24, `exploration/out/e03_label_feasibility.txt`):
 - The label is observable for 99.9% of candidates; 0.00% of final values come from an observation made before the event (median 40 observations per event). The stale-label problem of the historical data does not occur.
@@ -100,3 +102,4 @@ The locked test period ends before the annual timetable change on 2026-12-13, wh
 
 - 2026-09-25: v0.1, sections 1 and 2; label evidence from e03.
 - 2026-09-25: v0.2, sections 4 to 6 after e04 (DB prognosis baseline).
+- 2026-09-27: v0.3, dataset builder implements sections 1 and 2. Added exclusions for data quality (not known at cutoff, collector gap, stale label, DST hour) and T7 judges departures at the same minute together, so the result is independent of row order.

@@ -16,6 +16,10 @@ import pyarrow as pa
 BERLIN = ZoneInfo("Europe/Berlin")
 _TRIP_RE = re.compile(r"-\d+$")
 
+# Bump when the schema or the meaning of a column changes. The dataset builder
+# refuses parsed files older than the version it needs (rebuild them from raw).
+PARSER_VERSION = 2
+
 SCHEMA = pa.schema([
     ("collected_at", pa.timestamp("us", tz="UTC")),
     ("source", pa.string()),            # plan | fchg | rchg
@@ -45,6 +49,11 @@ SCHEMA = pa.schema([
     ("cpth", pa.string()),              # changed path
     ("event_msgs", pa.string()),        # messages on ar/dp as type:code, separated by |
     ("stop_msgs", pa.string()),         # messages on the stop
+    # added in parser version 2
+    ("fb", pa.string()),                # display label, e.g. "ICE 921" or "RE1" (fallback for line)
+    ("wings", pa.string()),             # trip keys of coupled trains, separated by |
+    ("tra", pa.string()),               # stop id of the run this train turns into
+    ("parser_version", pa.int16()),
 ])
 
 
@@ -91,6 +100,7 @@ def parse_timetable(xml_text: str, source: str, eva: str, collected_at: datetime
             "tl_type": tl.get("t") if tl is not None else None,
             "tl_filter": tl.get("f") if tl is not None else None,
             "stop_msgs": _msgs(s),
+            "parser_version": PARSER_VERSION,
         }
         events = [(name, s.find(name)) for name in ("ar", "dp")]
         events = [(n, e) for n, e in events if e is not None]
@@ -116,5 +126,8 @@ def parse_timetable(xml_text: str, source: str, eva: str, collected_at: datetime
                 "ppth": e.get("ppth"),
                 "cpth": e.get("cpth"),
                 "event_msgs": _msgs(e),
+                "fb": e.get("fb"),
+                "wings": e.get("wings"),
+                "tra": e.get("tra"),
             })
     return rows

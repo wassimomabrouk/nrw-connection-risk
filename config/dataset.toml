@@ -1,0 +1,19 @@
+# Dataset builder settings (DESIGN.md sections 1 and 2). Stations come from collector.toml.
+# Changing a value here changes the dataset: bump builder_version and rebuild all days.
+
+builder_version = 1
+min_parser_version = 2
+
+[candidates]
+min_transfer_min = 4          # minimum planned and realised transfer time (label threshold too)
+max_slack_min = 30            # largest planned slack considered a transfer
+
+[service_day]
+start_hour_local = 4          # a service day runs from 04:00 to 04:00 local time (Europe/Berlin)
+
+[cutoffs]
+minutes_before_arrival = [60, 30, 10]
+
+[quality]
+max_collector_gap_min = 45    # no observation at the hub for longer than this before a cutoff: excluded
+label_horizon_h = 6           # a day is built only once data exists until 6 h after its end

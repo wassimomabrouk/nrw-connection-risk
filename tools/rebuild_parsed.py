@@ -6,7 +6,10 @@ restore from backup or after a change to the parser.
 
 Run from the repo root:
     python tools/rebuild_parsed.py                                   (all raw data)
-    python tools/rebuild_parsed.py --raw data/collector/raw --out data/rebuilt
+    python tools/rebuild_parsed.py --raw data/restore/raw --out data/restore --replace
+
+<out>/parsed must be empty or absent; --replace deletes it first. Appending to an
+existing parsed layer would duplicate every row.
 """
 from __future__ import annotations
 
@@ -14,6 +17,7 @@ import argparse
 import gzip
 import json
 from datetime import datetime
+import shutil
 from pathlib import Path
 
 from nrw_connection_risk.collector.parse import parse_timetable
@@ -27,7 +31,15 @@ def main() -> None:
     ap.add_argument("--raw", type=Path, default=ROOT / "data" / "collector" / "raw")
     ap.add_argument("--out", type=Path, default=ROOT / "data" / "rebuilt",
                     help="output root; parsed files go to <out>/parsed/")
+    ap.add_argument("--replace", action="store_true",
+                    help="delete an existing <out>/parsed before rebuilding")
     args = ap.parse_args()
+
+    target = args.out / "parsed"
+    if target.exists() and any(target.rglob("*.parquet")):
+        if not args.replace:
+            raise SystemExit(f"{target} already contains Parquet files. Use --replace to rebuild it.")
+        shutil.rmtree(target)
 
     files = sorted(args.raw.rglob("*.jsonl.gz"))
     if not files:
