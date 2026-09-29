@@ -1,6 +1,6 @@
 # Design
 
-Status: **draft v0.3 (2026-09-27)**. Sections 1, 2, 4, 5 and 6 are decided; section 3 (features) is written after the feature exploration. The complete document is locked before any model is trained, and later changes are recorded in the change log with their reason.
+Status: **draft v0.4 (2026-09-29)**. Sections 1, 2, 4, 5 and 6 are decided; section 3 (features) is a draft until the second feature exploration on about three weeks of data. The complete document is locked before any model is trained, and later changes are recorded in the change log with their reason.
 
 ## 1. Unit of prediction: the transfer candidate
 
@@ -47,10 +47,26 @@ Rows are also excluded if A or B was not yet in the timetable data at the cutoff
 - In 37% of the cases where A's delay alone would break the connection, it held because B was late as well. Delays of A and B are correlated, so a model must predict both, not A's delay alone.
 - One day is not representative (weather, disruptions, construction). These figures are re-estimated on the full training period.
 
-## 3. Features (to be written after the feature exploration)
+## 3. Features (draft, locked after the second feature exploration)
 
 Point-in-time rule, fixed now: a feature may only use information available at the prediction cutoff (60, 30 and 10 minutes before A's planned arrival), as observed by the collector at that time.
 
+**First feature exploration** (`exploration/out/e05_features.txt`: 24 to 26 September, leave-one-day-out, each group added to a logistic regression on DB's prognosis, change in log loss):
+
+| Group | Content | 60 min | 30 min | 10 min | Consistent across days | Draft decision |
+|---|---|---|---|---|---|---|
+| Hub state | mean delay, share 5+ min late and share cancelled at the hub within 30 min; mean delay of A's line in the last hour | -2.2% | -1.8% | -0.7% | yes, all days and cutoffs | **keep** |
+| Freshness | minutes since the last update of A and B | -0.3% | -0.8% | -0.3% | yes | **keep** |
+| Trend | change of DB's prognosis for A and B over 15 and 30 minutes | +0.1% | +0.1% | 0.0% | no gain | drop |
+| Messages | delay cause codes, quality messages, disruption and connection notices | +1.1% | +0.8% | +0.4% | worse on average, unstable across days | drop |
+| Context | planned slack, hour, weekend, segments, hub, same platform | +1.2% | +1.4% | +1.3% | better only on 25 Sep, much worse on the Saturday | undecided |
+
+Findings that shape the design:
+- The information DB's prognosis lacks is in the **network state**, not in the train's own delay trend: once the current prognosis is known, its trend adds nothing, while the delays of other trains on A's line and at the hub do. The strongest single feature is the mean delay of A's line in the last hour (AUC 0.658 alone).
+- Connection notices (`c` messages) appear only after the event and cannot be used for prediction.
+- Context cannot be judged on three days: with a single weekend day, weekday, hour and hub effects mostly learn the particularities of individual days. It is re-tested with at least two weekends.
+
+The second exploration uses the feature pipeline code, not exploration code, and decides this section.
 ## 4. Baselines and models
 
 **How good DB already is** (service day 2026-09-24, `exploration/out/e04_db_prognosis_baseline.txt`). For every candidate, DB's prognosis for A and B was reconstructed as it was known at the cutoff, using only observations up to that moment:
@@ -61,7 +77,7 @@ Point-in-time rule, fixed now: a feature may only use information available at t
 | 30 min | 0.669 | 0.873 | 0.840 | 0.574 | 5.4 min |
 | 10 min | 0.672 | 0.914 | 0.850 | 0.723 | 4.0 min |
 
-DB's prognosis ranks connections far better than the timetable, and when DB's numbers imply a failure it is right 84% of the time. But it misses 61% of failures at 60 minutes and 43% at 30 minutes: DB's point prognosis rarely anticipates delays growing. It is weakest for S-Bahn to S-Bahn transfers (AUC 0.755) and at Essen Hbf (0.792). This is the headroom the project targets.
+DB's prognosis ranks connections far better than the timetable, and when DB's numbers imply a failure it is right 84% of the time. But it misses 61% of failures at 60 minutes and 43% at 30 minutes (the first feature exploration locates the missing information in the network state, section 3). It is weakest for S-Bahn to S-Bahn transfers (AUC 0.755) and at Essen Hbf (0.792). This is the headroom the project targets.
 
 **Baselines**, all evaluated on exactly the same candidates and cutoffs as the models:
 
@@ -70,13 +86,14 @@ DB's prognosis ranks connections far better than the timetable, and when DB's nu
 | B0 | Timetable | Logistic regression on planned slack only |
 | B1 | History | Failure rate per hub, segment and planned-slack bucket, estimated on the training period |
 | B2 | DB rule | Fails if DB's predicted slack is below 4 minutes or a cancellation is known (binary) |
-| B3 | Calibrated DB | Logistic regression on DB's predicted slack, predicted delays of A and B and known cancellations. **This is the headline benchmark.** |
+| B3 | Calibrated DB | Gradient boosting on DB's predicted slack, predicted delays of A and B and known cancellations only, with the same implementation, tuning and calibration procedure as the model. **This is the headline benchmark.** |
+| B3-lin | Calibrated DB, linear | Logistic regression on the same four inputs (reported for reference) |
 
-B3 turns DB's prognosis into a probability, so the model is compared against the best version of DB's own information, not against a binary rule.
+B3 turns DB's prognosis into a probability, so the model is compared against the best version of DB's own information, not against a binary rule. It uses the same model class as the model, so that the difference between the two measures the value of additional information, not of nonlinearity: in the first feature exploration, gradient boosting on DB's four inputs alone already beat the linear version by 3.6% in log loss at 30 minutes and 9.1% at 10 minutes.
 
 **Models:** logistic regression with the full feature set, then LightGBM, each with probability calibration (isotonic or Platt, chosen on validation). One model per cutoff or one model with the cutoff as a feature, chosen on validation. The model with the best validation log loss at the 30-minute cutoff is selected; ties within 1% go to the simpler model.
 
-**Pre-registered expectation:** a modest AUC gain over B3 (in the order of 0.01 to 0.03 at 30 minutes), a larger gain in recall at matched precision and in calibration, and the largest gains at the 60-minute cutoff and for S-Bahn transfers, where DB is weakest. A result below these expectations is reported as it is.
+**Pre-registered expectation:** a modest AUC gain over B3 (in the order of 0.01 to 0.03 at 30 minutes), a larger gain in recall at matched precision and in calibration, and the largest gains at the 60-minute cutoff and for S-Bahn transfers, where DB is weakest. A result below these expectations is reported as it is. These expectations were written against the linear B3 and are kept unchanged against the stricter B3; the first feature exploration (three days) shows an AUC gain of 0.009 at 30 minutes against it.
 
 ## 5. Evaluation
 
@@ -103,3 +120,4 @@ The locked test period ends before the annual timetable change on 2026-12-13, wh
 - 2026-09-25: v0.1, sections 1 and 2; label evidence from e03.
 - 2026-09-25: v0.2, sections 4 to 6 after e04 (DB prognosis baseline).
 - 2026-09-27: v0.3, dataset builder implements sections 1 and 2. Added exclusions for data quality (not known at cutoff, collector gap, stale label, DST hour) and T7 judges departures at the same minute together, so the result is independent of row order.
+- 2026-09-29: v0.4, first feature exploration (e05). B3 changed from logistic regression to gradient boosting on the same DB inputs, because a nonlinear model on DB's prognosis alone beats the linear one by 3.6 to 9.1% in log loss; with a linear B3 the headline would mostly measure nonlinearity. The linear version is kept as B3-lin. Section 3 drafted; locked after the second exploration.

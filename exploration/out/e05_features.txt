@@ -1,0 +1,96 @@
+
+== 1. Data ==
+training days used: 2026-09-24, 2026-09-25, 2026-09-26
+eligible rows: 296,485, features built in 23 s
+
+== 2. Feature coverage and univariate signal at the 30-minute cutoff ==
+            feature  non_missing_pct  mean_if_fail  mean_if_holds  auc_alone
+       db_slack_min            100.0          1.19          17.93      0.818
+     db_delay_a_min            100.0         14.87           1.82      0.762
+     db_delay_b_min            100.0          3.12           2.96      0.554
+     b_cancel_known            100.0          0.12           0.00      0.561
+         trend_a_15            100.0          2.26           0.45      0.617
+         trend_a_30            100.0          4.15           0.83      0.655
+         trend_b_15            100.0          0.46           0.66      0.530
+          age_a_min             99.4          5.87           9.14      0.615
+          age_b_min             74.7         10.79           8.89      0.567
+    n_delay_codes_a            100.0          0.61           0.19      0.657
+        n_quality_a            100.0          0.05           0.03      0.510
+    n_delay_codes_b            100.0          0.22           0.20      0.512
+         h_notice_a            100.0          0.46           0.39      0.537
+         h_notice_b            100.0          0.45           0.38      0.532
+         c_notice_a            100.0          0.00           0.00        NaN
+     hub_mean_delay            100.0          5.98           5.59      0.547
+    hub_share_late5            100.0          0.32           0.30      0.551
+   hub_share_cancel            100.0          0.05           0.04      0.554
+line_recent_delay_a             80.5          9.36           4.92      0.658
+  planned_slack_min            100.0         12.94          16.80      0.651
+           hour_sin            100.0         -0.21          -0.15      0.519
+           hour_cos            100.0         -0.33          -0.29      0.523
+            weekend            100.0          0.32           0.30      0.510
+n_stations_before_a            100.0         10.79           9.95      0.535
+      same_platform            100.0          0.06           0.11      0.522
+auc_alone is direction-free (max of AUC and 1 - AUC); DB features for comparison.
+
+== 3. Cutoff 60 min: 98,853 rows, failure rate 23.5 % ==
+                model  log_loss    auc  brier  d_log_loss_vs_B3_pct
+B0 planned slack (LR)    0.5248 0.6414 0.1718                 31.23
+B3 calibrated DB (LR)    0.3999 0.8139 0.1216                  0.00
+      B3 + trend (LR)    0.4003 0.8136 0.1216                  0.10
+  B3 + freshness (LR)    0.3989 0.8138 0.1212                 -0.25
+   B3 + messages (LR)    0.4042 0.8086 0.1230                  1.08
+        B3 + hub (LR)    0.3910 0.8273 0.1193                 -2.23
+    B3 + context (LR)    0.4047 0.8090 0.1222                  1.20
+      LR all features    0.3966 0.8204 0.1200                 -0.83
+ GBM DB features only    0.3931 0.8132 0.1193                 -1.70
+     GBM all features    0.4036 0.8232 0.1191                  0.93
+Log loss per held-out day (lower is better; a useful group improves on B3 on every day):
+       day     B3  +trend  +freshness  +messages   +hub  +context  LR all  GBM DB  GBM all
+2026-09-24 0.3858  0.3858      0.3851     0.3849 0.3780    0.3913  0.3804  0.3795   0.3738
+2026-09-25 0.3946  0.3948      0.3930     0.4071 0.3851    0.3901  0.3849  0.3867   0.3801
+2026-09-26 0.4225  0.4237      0.4219     0.4223 0.4130    0.4381  0.4296  0.4163   0.4667
+
+== 3. Cutoff 30 min: 98,851 rows, failure rate 22.7 % ==
+                model  log_loss    auc  brier  d_log_loss_vs_B3_pct
+B0 planned slack (LR)    0.5137 0.6471 0.1672                 56.85
+B3 calibrated DB (LR)    0.3275 0.8743 0.0947                  0.00
+      B3 + trend (LR)    0.3277 0.8743 0.0948                  0.06
+  B3 + freshness (LR)    0.3248 0.8763 0.0939                 -0.82
+   B3 + messages (LR)    0.3300 0.8720 0.0954                  0.76
+        B3 + hub (LR)    0.3216 0.8808 0.0934                 -1.80
+    B3 + context (LR)    0.3322 0.8706 0.0955                  1.44
+      LR all features    0.3249 0.8782 0.0938                 -0.79
+ GBM DB features only    0.3156 0.8758 0.0916                 -3.63
+     GBM all features    0.3176 0.8843 0.0907                 -3.02
+Log loss per held-out day (lower is better; a useful group improves on B3 on every day):
+       day     B3  +trend  +freshness  +messages   +hub  +context  LR all  GBM DB  GBM all
+2026-09-24 0.3214  0.3216      0.3198     0.3205 0.3163    0.3246  0.3164  0.3058   0.3040
+2026-09-25 0.3200  0.3200      0.3160     0.3274 0.3143    0.3160  0.3109  0.3102   0.2986
+2026-09-26 0.3440  0.3446      0.3418     0.3444 0.3370    0.3614  0.3525  0.3339   0.3574
+
+== 4. Cutoff 30 min: drop one group from the GBM with all features ==
+  dropped  log_loss  increase_pct
+    trend    0.3166         -0.31
+freshness    0.3181          0.16
+ messages    0.3165         -0.35
+      hub    0.3234          1.83
+  context    0.3165         -0.35
+increase_pct: how much worse the model gets without the group (its unique contribution).
+
+== 3. Cutoff 10 min: 98,781 rows, failure rate 22.1 % ==
+                model  log_loss    auc  brier  d_log_loss_vs_B3_pct
+B0 planned slack (LR)    0.5055 0.6512 0.1638                 86.95
+B3 calibrated DB (LR)    0.2704 0.9147 0.0737                  0.00
+      B3 + trend (LR)    0.2704 0.9150 0.0739                  0.00
+  B3 + freshness (LR)    0.2697 0.9147 0.0735                 -0.26
+   B3 + messages (LR)    0.2716 0.9137 0.0740                  0.44
+        B3 + hub (LR)    0.2686 0.9163 0.0737                 -0.67
+    B3 + context (LR)    0.2739 0.9120 0.0744                  1.29
+      LR all features    0.2711 0.9147 0.0743                  0.26
+ GBM DB features only    0.2457 0.9179 0.0678                 -9.13
+     GBM all features    0.2482 0.9252 0.0673                 -8.21
+Log loss per held-out day (lower is better; a useful group improves on B3 on every day):
+       day     B3  +trend  +freshness  +messages   +hub  +context  LR all  GBM DB  GBM all
+2026-09-24 0.2707  0.2708      0.2704     0.2701 0.2682    0.2723  0.2680  0.2434   0.2443
+2026-09-25 0.2631  0.2630      0.2621     0.2670 0.2618    0.2604  0.2603  0.2369   0.2328
+2026-09-26 0.2793  0.2791      0.2783     0.2793 0.2777    0.2927  0.2885  0.2594   0.2721

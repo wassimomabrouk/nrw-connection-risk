@@ -16,7 +16,8 @@ dependencies = [
 
 [project.optional-dependencies]
 data = ["duckdb>=1.1", "pandas>=2.2"]
-dev = ["pytest>=8", "duckdb>=1.1", "pandas>=2.2"]
+model = ["scikit-learn>=1.5"]
+dev = ["pytest>=8", "duckdb>=1.1", "pandas>=2.2", "scikit-learn>=1.5"]
 
 [project.scripts]
 nrw-collector = "nrw_connection_risk.collector.main:main"
