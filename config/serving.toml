@@ -1,0 +1,25 @@
+# Live prediction service (docs/SERVING.md). Paths are relative to the repo root
+# (or absolute, e.g. inside the Docker container).
+
+[data]
+parsed = "data/collector/parsed"   # the collector's parsed layer
+raw = "data/collector/raw"         # the collector's raw layer: responses not flushed yet are read from here
+lookback_h = 6                     # data window per scoring run
+
+[scoring]
+interval_s = 60                    # score all upcoming connections every minute
+min_minutes_ahead = 2              # arrivals closer than this are not scored
+max_minutes_ahead = 65             # ... nor further ahead than this (largest cutoff + margin)
+max_collector_gap_min = 45         # no data at a hub for longer: connections there are not scored
+
+[model]
+models_dir = "models"
+bundle = ""                        # folder name in models_dir; empty = newest
+
+[log]
+dir = "data/serving/predictions"   # predictions at the 60/30/10-minute marks, for monitoring
+flush_interval_s = 600
+max_late_min = 5                   # a mark missed by more than this (e.g. service down) is not logged
+
+[health]
+max_data_age_s = 300               # older data: status "degraded"

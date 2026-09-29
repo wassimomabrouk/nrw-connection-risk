@@ -4,15 +4,16 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa
 
-from ..dataset.load import _connect
+from ..dataset.load import _connect, window_dates
 
 
 def load_messages(parsed_root: Path, t_from: pd.Timestamp, t_to: pd.Timestamp,
-                  stations: list[str]) -> tuple[pd.DataFrame, pd.DataFrame]:
+                  stations: list[str], extra: pa.Table | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
     """First time each message type:code was seen on an event (key, type, code, obs)
     and each message type on a stop (stop_id, type, obs), in naive UTC."""
-    con, _ = _connect(parsed_root)
+    con, _ = _connect(parsed_root, extra, window_dates(t_from, t_to))
     evas = ", ".join(f"'{e}'" for e in stations)
     rows = con.execute(f"""
         SELECT stop_id, event, CAST(collected_at AS TIMESTAMP) AS obs, event_msgs, stop_msgs
@@ -29,7 +30,7 @@ def plan_changes(parsed_root: Path, t_from: pd.Timestamp, t_to: pd.Timestamp, st
     """Number of hub events whose planned time differs between plan responses. The hub
     features take planned times from the latest plan version, which is only point-in-time
     safe if planned times never change after first publication (checked here, reported in _meta.json)."""
-    con, _ = _connect(parsed_root)
+    con, _ = _connect(parsed_root, dates=window_dates(t_from, t_to))
     evas = ", ".join(f"'{e}'" for e in stations)
     n = con.execute(f"""
         SELECT COUNT(*) FROM (

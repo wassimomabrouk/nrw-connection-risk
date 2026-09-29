@@ -30,12 +30,24 @@ ssh -i KEY ubuntu@HOST "rclone size gdrive:nrw-connection-risk-backup/raw"      
 ## Deploying a code change
 
 ```
-ssh -i KEY ubuntu@HOST "cd ~/nrw-connection-risk && git pull && .venv/bin/pip install -e . && .venv/bin/python -m pytest -q && sudo systemctl restart nrw-collector"
+ssh -i KEY ubuntu@HOST "cd ~/nrw-connection-risk && git pull && .venv/bin/pip install -e '.[dev]' && .venv/bin/python -m pytest -q && sudo systemctl restart nrw-collector"
 ```
 
 After a parser version change (see `PARSER_VERSION` in `collector/parse.py`), parsed files written before the deploy keep the old schema. The dataset builder refuses them; rebuild the parsed layer from raw where a dataset is built.
 
 The service handles SIGTERM: it finishes the current request and flushes buffered rows before stopping, so a restart loses no data. The gap is a few seconds; `fchg` (full state every 30 minutes) repairs anything `rchg` missed.
+
+## Prediction API
+
+Runs in Docker next to the collector (setup: [SERVING.md](SERVING.md#deployment-oracle-server-next-to-the-collector)).
+
+```
+ssh -i KEY ubuntu@HOST "curl -s localhost:8000/health"                                  # status, data age, scoring time
+ssh -i KEY ubuntu@HOST "cd ~/nrw-connection-risk && git pull && docker compose up -d --build"   # deploy a code change
+ssh -i KEY ubuntu@HOST "docker compose -f ~/nrw-connection-risk/compose.yml logs --tail 50 api"
+```
+
+A new model: copy its folder to `models/` on the server and restart (`docker compose restart api`); the API loads the newest bundle.
 
 ## Stations
 

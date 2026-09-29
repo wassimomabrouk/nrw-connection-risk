@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t nrw-api .
+      - name: Start container without data or model
+        run: docker run -d --name api -p 8000:8000 nrw-api
+      - name: Smoke test
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health > health.json; then break; fi
+            sleep 2
+          done
+          cat health.json
+          python3 -c "import json; h = json.load(open('health.json')); assert h['status'] == 'no_model', h"
+          curl -fsS "http://127.0.0.1:8000/v1/connections" | python3 -c "import json, sys; assert json.load(sys.stdin)['count'] == 0"
+          curl -fsS http://127.0.0.1:8000/openapi.json > /dev/null
+      - name: Container logs
+        if: always()
+        run: docker logs api

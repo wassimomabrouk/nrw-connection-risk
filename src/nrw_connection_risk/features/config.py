@@ -22,6 +22,14 @@ class FeatureConfig:
     def columns(self) -> list[str]:
         return feature_columns(list(self.groups))
 
+    @classmethod
+    def from_dict(cls, d: dict) -> "FeatureConfig":
+        """Inverse of as_dict (used to restore the settings a model was trained with)."""
+        d = dict(d)
+        d["groups"] = tuple(d["groups"])
+        d["holidays"] = frozenset(date.fromisoformat(x) for x in d["holidays"])
+        return cls(**d)
+
     def as_dict(self) -> dict:
         d = dict(self.__dict__)
         d["groups"] = list(self.groups)

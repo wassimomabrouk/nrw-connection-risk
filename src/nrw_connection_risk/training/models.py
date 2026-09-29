@@ -188,6 +188,7 @@ class Calibrated:
                 z = np.log(np.clip(oof, EPS, 1 - EPS) / (1 - np.clip(oof, EPS, 1 - EPS)))
                 self.cal_ = LogisticRegression(C=1e6).fit(z.reshape(-1, 1), y)
         self.base_ = self.make().fit(rows)
+        self.make = None                    # fitted: keep only fitted parts, so the model can be saved
         return self
 
     def predict(self, rows):
@@ -208,6 +209,7 @@ class PerCutoff:
 
     def fit(self, rows):
         self.models_ = {L: self.make().fit(g) for L, g in rows.groupby("cutoff_min")}
+        self.make = None                    # fitted: keep only fitted parts, so the model can be saved
         return self
 
     def predict(self, rows):

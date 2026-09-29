@@ -10,6 +10,7 @@ from __future__ import annotations
 import gzip
 import json
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,8 +69,10 @@ class ParsedStore:
             folder.mkdir(parents=True, exist_ok=True)
             stamp = datetime.now(timezone.utc).strftime("%H%M%S")
             path = folder / f"part-{stamp}-{uuid.uuid4().hex[:8]}.parquet"
+            tmp = path.with_name(path.name + ".tmp")        # readers never see a half-written file
             table = pa.Table.from_pylist(rows, schema=SCHEMA)
-            pq.write_table(table, path, compression="zstd")
+            pq.write_table(table, tmp, compression="zstd")
+            os.replace(tmp, path)
             written += len(rows)
             del self.buffer[(source, date)]
         if written:

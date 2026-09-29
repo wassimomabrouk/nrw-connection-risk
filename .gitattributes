@@ -1,0 +1,7 @@
+# Store and check out text files with LF everywhere (no CRLF warnings on Windows).
+* text=auto eol=lf
+*.bat text eol=crlf
+*.png binary
+*.parquet binary
+*.gz binary
+*.joblib binary

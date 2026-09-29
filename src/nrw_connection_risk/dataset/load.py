@@ -6,6 +6,7 @@ from pathlib import Path
 
 import duckdb
 import pandas as pd
+import pyarrow as pa
 
 from .timeutil import to_naive_utc
 
@@ -23,24 +24,56 @@ class Window:
     data_end: pd.Timestamp
 
 
-def _connect(parsed_root: Path) -> tuple[duckdb.DuckDBPyConnection, str]:
-    files = list(parsed_root.rglob("*.parquet")) if parsed_root.exists() else []
-    if not files:
-        raise ParsedLayerError(f"No parsed Parquet files under {parsed_root}")
+def _partition_globs(parsed_root: Path, dates) -> list[str]:
+    """One glob per existing source=*/date=D folder: only the days a query needs are
+    opened (reading every file's footer would slow down as the collection grows)."""
+    if not parsed_root.exists():
+        return []
+    out = []
+    for src in sorted(parsed_root.glob("source=*")):
+        for d in dates:
+            folder = src / f"date={d}"
+            if folder.is_dir() and any(folder.glob("*.parquet")):
+                out.append((folder.as_posix() + "/*.parquet").replace("'", "''"))
+    return out
+
+
+def window_dates(t_from: pd.Timestamp, t_to: pd.Timestamp) -> list[str]:
+    return [d.isoformat() for d in pd.date_range(t_from.normalize(), t_to.normalize(), freq="D").date]
+
+
+def _connect(parsed_root: Path, extra: pa.Table | None = None,
+             dates: list[str] | None = None) -> tuple[duckdb.DuckDBPyConnection, str]:
+    """DuckDB connection with a view `parsed` over the parsed layer (only the given UTC
+    dates, if any). `extra` adds rows that are not flushed to Parquet yet (live serving:
+    responses parsed from the raw layer)."""
+    if dates is None:
+        files = [(parsed_root.as_posix().rstrip("/") + "/**/*.parquet").replace("'", "''")] \
+            if parsed_root.exists() and any(parsed_root.rglob("*.parquet")) else []
+    else:
+        files = _partition_globs(parsed_root, dates)
+    has_extra = extra is not None and extra.num_rows > 0
+    if not files and not has_extra:
+        raise ParsedLayerError(f"No parsed Parquet files under {parsed_root}"
+                               + (f" for {dates[0]} to {dates[-1]}" if dates else ""))
     con = duckdb.connect()
     con.execute("SET TimeZone = 'UTC'")
-    glob = (parsed_root.as_posix().rstrip("/") + "/**/*.parquet").replace("'", "''")
-    con.execute(f"""
-        CREATE VIEW parsed AS
-        SELECT * FROM read_parquet('{glob}', hive_partitioning = true, union_by_name = true)""")
-    return con, glob
+    file_list = ", ".join(f"'{f}'" for f in files)
+    parts = [f"SELECT * FROM read_parquet([{file_list}], hive_partitioning = true, union_by_name = true)"] \
+        if files else []
+    if has_extra:
+        con.register("unflushed", extra)
+        parts.append("SELECT * FROM unflushed")
+    con.execute("CREATE VIEW parsed AS " + " UNION ALL BY NAME ".join(parts))
+    return con, file_list
 
 
 def load_window(parsed_root: Path, t_from: pd.Timestamp, t_to: pd.Timestamp,
-                min_parser_version: int, stations: list[str] | None = None) -> Window:
+                min_parser_version: int, stations: list[str] | None = None,
+                extra: pa.Table | None = None) -> Window:
     """All parsed rows collected in [t_from, t_to] (naive UTC bounds), optionally only
     for the given stations (plan, observations, polls; the data span stays global)."""
-    con, _ = _connect(parsed_root)
+    con, _ = _connect(parsed_root, extra, window_dates(t_from, t_to))
     d_from, d_to = t_from.date().isoformat(), t_to.date().isoformat()
     where = (f"CAST(date AS DATE) BETWEEN DATE '{d_from}' AND DATE '{d_to}' "
              f"AND collected_at BETWEEN TIMESTAMPTZ '{t_from.isoformat()}+00:00' "

@@ -1,8 +1,10 @@
 # NRW Connection Risk
 
+[![CI](https://github.com/wassimomabrouk/nrw-connection-risk/actions/workflows/ci.yml/badge.svg)](https://github.com/wassimomabrouk/nrw-connection-risk/actions/workflows/ci.yml)
+
 Predicting missed train connections at five NRW rail hubs (Köln Hbf, Düsseldorf Hbf, Duisburg Hbf, Essen Hbf, Aachen Hbf) from live Deutsche Bahn timetable data, and comparing the model against DB's own prognosis at fixed lead times.
 
-**Status: work in progress.** The data collector has been running in production since 2026-09-24 (Oracle Cloud, systemd, external monitoring, daily off-site backup; see [docs/OPERATIONS.md](docs/OPERATIONS.md)). Modelling starts once enough data has been collected.
+**Status: work in progress.** The data collector has been running in production since 2026-09-24 (Oracle Cloud, systemd, external monitoring, daily off-site backup; see [docs/OPERATIONS.md](docs/OPERATIONS.md)). The pipeline from raw data to a live prediction API is built and tested; the model is selected on validation data in November and evaluated once on a locked test period in December. Until then the API serves a stand-in model.
 
 ## Why a custom collector
 
@@ -17,15 +19,19 @@ config/collector.toml            stations, polling intervals, storage settings
 config/dataset.toml              candidate rules, cutoffs and data-quality thresholds for the dataset
 config/features.toml             feature groups in use, hub-state settings, holidays
 config/training.toml             splits, models, calibration, evaluation settings
+config/serving.toml              live service: data paths, scoring interval, prediction log
 src/nrw_connection_risk/
     collector/                   API client, XML parsing, storage, scheduler, health checks
     dataset/                     transfer candidates, point-in-time state, labels (training table)
     features/                    point-in-time features, shared by training and live prediction
-    training/                    baselines B0-B3, models, calibration, time-based evaluation, test lock
+    training/                    baselines B0-B3, models, calibration, time-based evaluation, test lock, model bundle
+    serving/                     live scoring every minute and the FastAPI service
 tests/                           unit and integration tests (pytest)
 tools/                           API smoke test, collection status, raw-to-parsed rebuild, feeder selection
 deploy/                          systemd units for the collector and the daily backup
-docs/                            operations runbook, dataset card, feature card, training and evaluation
+Dockerfile, compose.yml          container for the API
+.github/workflows/ci.yml         tests on Python 3.11 and 3.14, image build and smoke test
+docs/                            operations runbook, dataset card, feature card, training and evaluation, serving
 exploration/                     exploration scripts e01 to e05 and their reports
 section0/                        feasibility scripts on the historical dataset
 ```
@@ -76,6 +82,15 @@ python -m nrw_connection_risk.training.evaluate --mode cv
 ```
 
 Compares the timetable, a historical rate, DB's own rule and DB's prognosis turned into a probability (B3, the headline baseline, gradient boosting on DB's four numbers) against the models, with confidence intervals from resampling whole days. The test period is locked in code and every evaluation of it is logged. Details: [docs/TRAINING.md](docs/TRAINING.md).
+
+## Live predictions
+
+```
+python -m nrw_connection_risk.training.fit_bundle --model gbm
+uvicorn nrw_connection_risk.serving.api:create_app_from_env --factory --port 8000
+```
+
+Every minute, all upcoming connections at the five hubs get a failure probability from the model and from the DB baseline (B3), computed with the same feature code as training; a test checks that live and offline features are identical. Predictions at the 60, 30 and 10-minute marks are logged for monitoring. Runs in Docker next to the collector. Details: [docs/SERVING.md](docs/SERVING.md).
 
 ## Data source
 

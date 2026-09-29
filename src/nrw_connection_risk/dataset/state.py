@@ -16,6 +16,8 @@ def state_at(keys: pd.Series, times: pd.Series, obs: pd.DataFrame) -> pd.DataFra
                       "_row": range(len(keys))}).sort_values("t", kind="stable")
     h = obs[["key", "obs", "ct", "ct_raw", "cs"]].copy()
     h["obs"] = h["obs"].astype("datetime64[ns]")
+    h["ct"] = h["ct"].astype("datetime64[ns]")
+    h["key"] = h["key"].astype(q["key"].dtype)      # an empty table comes back with object dtype
     h = h.sort_values("obs", kind="stable")
     m = pd.merge_asof(q, h, left_on="t", right_on="obs", by="key", direction="backward",
                       allow_exact_matches=True)
@@ -38,6 +40,7 @@ def last_poll_at(evas: pd.Series, times: pd.Series, polls: pd.DataFrame) -> pd.S
                       "_row": range(len(evas))}).sort_values("t", kind="stable")
     h = polls.rename(columns={"t": "poll"}).copy()
     h["poll"] = h["poll"].astype("datetime64[ns]")
+    h["eva"] = h["eva"].astype(q["eva"].dtype)
     m = pd.merge_asof(q, h.sort_values("poll", kind="stable"), left_on="t", right_on="poll",
                       by="eva", direction="backward").sort_values("_row")
     return pd.Series(m["poll"].values, index=evas.index)

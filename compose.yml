@@ -1,0 +1,18 @@
+# Run the API next to the collector on the server:  docker compose up -d --build
+# The port is bound to localhost only; reach it through an SSH tunnel (docs/SERVING.md).
+services:
+  api:
+    build:
+      context: .
+      args:
+        SKLEARN_VERSION: ${SKLEARN_VERSION:-1.9.1}
+    image: nrw-connection-risk-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./data/collector:/app/data/collector:ro   # the collector's raw and parsed layers
+      - ./models:/app/models:ro                   # model bundles (training.fit_bundle)
+      - ./data/serving:/app/data/serving          # prediction log for monitoring
+    mem_limit: 2g
+    stop_grace_period: 45s                        # time to finish a run and flush the prediction log
