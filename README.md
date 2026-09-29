@@ -15,14 +15,16 @@ The project therefore collects its own data from the DB Timetables API: recent c
 ```
 config/collector.toml            stations, polling intervals, storage settings
 config/dataset.toml              candidate rules, cutoffs and data-quality thresholds for the dataset
+config/features.toml             feature groups in use, hub-state settings, holidays
 src/nrw_connection_risk/
     collector/                   API client, XML parsing, storage, scheduler, health checks
     dataset/                     transfer candidates, point-in-time state, labels (training table)
+    features/                    point-in-time features, shared by training and live prediction
 tests/                           unit and integration tests (pytest)
 tools/                           API smoke test, collection status, raw-to-parsed rebuild, feeder selection
 deploy/                          systemd units for the collector and the daily backup
-docs/                            operations runbook, dataset card
-exploration/                     exploration scripts e01 to e04 and their reports
+docs/                            operations runbook, dataset card, feature card
+exploration/                     exploration scripts e01 to e05 and their reports
 section0/                        feasibility scripts on the historical dataset
 ```
 
@@ -56,6 +58,14 @@ python -m nrw_connection_risk.dataset.build --parsed data/restore/parsed --from 
 ```
 
 One Parquet table per service day: every transfer candidate at the five hubs, DB's prognosis as known 60, 30 and 10 minutes before arrival, and the observed outcome. Details: [docs/DATASET.md](docs/DATASET.md).
+
+## Building the features
+
+```
+python -m nrw_connection_risk.features.build --from 2026-09-24 --to 2026-09-30
+```
+
+Six feature groups (DB prognosis, hub state, freshness, context, trend, messages) for every eligible row. The functions are pure and will also serve live predictions; tests rewrite all data after a point in time and check that no earlier feature changes. Details: [docs/FEATURES.md](docs/FEATURES.md).
 
 ## Data source
 

@@ -66,7 +66,7 @@ Findings that shape the design:
 - Connection notices (`c` messages) appear only after the event and cannot be used for prediction.
 - Context cannot be judged on three days: with a single weekend day, weekday, hour and hub effects mostly learn the particularities of individual days. It is re-tested with at least two weekends.
 
-The second exploration uses the feature pipeline code, not exploration code, and decides this section.
+The second exploration uses the feature pipeline code, not exploration code, and decides this section. The pipeline (`src/nrw_connection_risk/features/`, [docs/FEATURES.md](docs/FEATURES.md)) computes all six groups, so dropped groups can be re-tested; `config/features.toml` selects the groups a model uses (draft: DB, hub, freshness, context).
 
 **Feeder stations.** Because the missing information lies in the network state, the collector also polls stations 2 to 8 stops upstream of the hubs (role `feeder`, collected from 2026-09-29: the 12 stations from `tools/select_feeders.py --min-pos 4 --max-pos 10`, which together lie on the path of 47% of transfer candidates; stations closer than 4 stops were excluded because they give almost no lead time). Data that is not collected cannot be added later, so they are collected now; they enter the feature set only if an exploration shows a gain over the hub-level network features.
 ## 4. Baselines and models
@@ -123,3 +123,4 @@ The locked test period ends before the annual timetable change on 2026-12-13, wh
 - 2026-09-25: v0.2, sections 4 to 6 after e04 (DB prognosis baseline).
 - 2026-09-27: v0.3, dataset builder implements sections 1 and 2. Added exclusions for data quality (not known at cutoff, collector gap, stale label, DST hour) and T7 judges departures at the same minute together, so the result is independent of row order.
 - 2026-09-29: v0.4, first feature exploration (e05). B3 changed from logistic regression to gradient boosting on the same DB inputs, because a nonlinear model on DB's prognosis alone beats the linear one by 3.6 to 9.1% in log loss; with a linear B3 the headline would mostly measure nonlinearity. The linear version is kept as B3-lin. Section 3 drafted; locked after the second exploration.
+- 2026-09-29: feature pipeline implemented (no design change): all groups as in e05, shared by training and live prediction, with leakage tests (future rewrite, truncation at each cutoff).

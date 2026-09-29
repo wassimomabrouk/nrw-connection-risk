@@ -1,0 +1,15 @@
+# Feature pipeline settings (DESIGN.md section 3). The builder always computes every
+# group; `groups` selects what training uses. Bump feature_version when a definition changes.
+
+feature_version = 1
+groups = ["db", "hub", "freshness", "context"]   # draft decision after e05; trend and messages kept for re-testing
+
+[hub]
+grid_min = 5                 # hub state is computed on a 5-minute grid, at the last grid point <= cutoff
+window_min = 30              # trains planned within +-30 minutes count towards the hub state
+line_lookback_min = 60       # A's line: arrivals of the same line in the last 60 minutes
+late_threshold_min = 5
+
+[context]
+# NRW public holidays inside the data period, treated like Sundays
+holidays = ["2026-10-03", "2026-11-01", "2026-12-25", "2026-12-26", "2027-01-01", "2027-04-02", "2027-04-05"]
