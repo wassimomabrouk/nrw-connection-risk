@@ -16,14 +16,16 @@ The project therefore collects its own data from the DB Timetables API: recent c
 config/collector.toml            stations, polling intervals, storage settings
 config/dataset.toml              candidate rules, cutoffs and data-quality thresholds for the dataset
 config/features.toml             feature groups in use, hub-state settings, holidays
+config/training.toml             splits, models, calibration, evaluation settings
 src/nrw_connection_risk/
     collector/                   API client, XML parsing, storage, scheduler, health checks
     dataset/                     transfer candidates, point-in-time state, labels (training table)
     features/                    point-in-time features, shared by training and live prediction
+    training/                    baselines B0-B3, models, calibration, time-based evaluation, test lock
 tests/                           unit and integration tests (pytest)
 tools/                           API smoke test, collection status, raw-to-parsed rebuild, feeder selection
 deploy/                          systemd units for the collector and the daily backup
-docs/                            operations runbook, dataset card, feature card
+docs/                            operations runbook, dataset card, feature card, training and evaluation
 exploration/                     exploration scripts e01 to e05 and their reports
 section0/                        feasibility scripts on the historical dataset
 ```
@@ -66,6 +68,14 @@ python -m nrw_connection_risk.features.build --from 2026-09-24 --to 2026-09-30
 ```
 
 Six feature groups (DB prognosis, hub state, freshness, context, trend, messages) for every eligible row. The functions are pure and will also serve live predictions; tests rewrite all data after a point in time and check that no earlier feature changes. Details: [docs/FEATURES.md](docs/FEATURES.md).
+
+## Training and evaluation
+
+```
+python -m nrw_connection_risk.training.evaluate --mode cv
+```
+
+Compares the timetable, a historical rate, DB's own rule and DB's prognosis turned into a probability (B3, the headline baseline, gradient boosting on DB's four numbers) against the models, with confidence intervals from resampling whole days. The test period is locked in code and every evaluation of it is logged. Details: [docs/TRAINING.md](docs/TRAINING.md).
 
 ## Data source
 

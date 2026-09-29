@@ -1,0 +1,46 @@
+# Training and evaluation settings (DESIGN.md sections 4 to 6).
+# Feature groups for the models come from config/features.toml.
+
+[splits]                          # service days, inclusive
+train = ["2026-09-24", "2026-11-08"]
+validation = ["2026-11-09", "2026-11-22"]
+test = ["2026-11-23", "2026-12-12"]          # locked: evaluated once, see reports/test_log.jsonl
+robustness_from = "2026-12-13"               # locked until the test evaluation is done
+
+[cv]                              # rolling origin: each fold fits on all training days before its block
+min_train_days = 14               # days before the first evaluation block
+fold_days = 7                     # days evaluated per fold (one week covers every weekday)
+
+[models]
+run = ["B0", "B1", "B2", "B3-lin", "B3", "lr", "gbm"]   # baselines first; lr before gbm = simpler first
+cutoff_mode = "separate"          # "separate": one model per cutoff; "feature": cutoff as an input
+calibration = "none"              # "none", "platt" or "isotonic" (chosen on validation)
+calibration_folds = 5             # day blocks for the out-of-fold predictions the calibrator is fit on
+
+[lr]
+C = 1.0
+clip_quantile = 0.005             # numeric inputs clipped at the training 0.5% and 99.5% quantiles
+
+[gbm]                             # scikit-learn HistGradientBoosting; same settings for B3 and gbm
+learning_rate = 0.05
+max_iter = 500
+max_leaf_nodes = 31
+min_samples_leaf = 100
+l2_regularization = 1.0
+validation_fraction = 0.15        # early stopping
+n_iter_no_change = 20
+
+[history]                         # B1: failure rate per hub, segment pair and slack bucket
+slack_buckets = [4, 6, 8, 10, 15, 20, 31]
+smoothing = 20                    # pseudo-count towards the coarser rate (hub x bucket, then bucket)
+
+[evaluation]
+primary_cutoff = 30
+headline_baseline = "B3"
+slices = ["segment_a", "segment_b", "hub"]
+bootstrap_n = 1000                # resamples of whole service days (log loss, Brier)
+bootstrap_n_auc = 200             # AUC needs the rows, so fewer resamples
+calibration_bins = 10
+min_days_for_ci = 10              # below this, intervals are printed with a warning
+selection_tie = 0.01              # relative log loss: within 1%, the simpler model wins
+seed = 42

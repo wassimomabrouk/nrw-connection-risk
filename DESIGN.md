@@ -1,6 +1,6 @@
 # Design
 
-Status: **draft v0.4 (2026-09-29)**. Sections 1, 2, 4, 5 and 6 are decided; section 3 (features) is a draft until the second feature exploration on about three weeks of data. The complete document is locked before any model is trained, and later changes are recorded in the change log with their reason.
+Status: **draft v0.5 (2026-09-29)**. Sections 1, 2, 4, 5 and 6 are decided; section 3 (features) is a draft until the second feature exploration on about three weeks of data. The complete document is locked before any model is trained, and later changes are recorded in the change log with their reason.
 
 ## 1. Unit of prediction: the transfer candidate
 
@@ -86,14 +86,14 @@ DB's prognosis ranks connections far better than the timetable, and when DB's nu
 | | Baseline | Definition |
 |---|---|---|
 | B0 | Timetable | Logistic regression on planned slack only |
-| B1 | History | Failure rate per hub, segment and planned-slack bucket, estimated on the training period |
+| B1 | History | Failure rate per hub, segment pair and planned-slack bucket, estimated on the training period and shrunk towards the hub x bucket rate when a cell is small |
 | B2 | DB rule | Fails if DB's predicted slack is below 4 minutes or a cancellation is known (binary) |
 | B3 | Calibrated DB | Gradient boosting on DB's predicted slack, predicted delays of A and B and known cancellations only, with the same implementation, tuning and calibration procedure as the model. **This is the headline benchmark.** |
 | B3-lin | Calibrated DB, linear | Logistic regression on the same four inputs (reported for reference) |
 
 B3 turns DB's prognosis into a probability, so the model is compared against the best version of DB's own information, not against a binary rule. It uses the same model class as the model, so that the difference between the two measures the value of additional information, not of nonlinearity: in the first feature exploration, gradient boosting on DB's four inputs alone already beat the linear version by 3.6% in log loss at 30 minutes and 9.1% at 10 minutes.
 
-**Models:** logistic regression with the full feature set, then LightGBM, each with probability calibration (isotonic or Platt, chosen on validation). One model per cutoff or one model with the cutoff as a feature, chosen on validation. The model with the best validation log loss at the 30-minute cutoff is selected; ties within 1% go to the simpler model.
+**Models:** logistic regression with the full feature set, then gradient boosting (scikit-learn `HistGradientBoostingClassifier`, the histogram algorithm of LightGBM), each with probability calibration (none, Platt or isotonic, chosen on validation). The calibrator is fit on out-of-fold predictions over blocks of whole training days, never on the data being evaluated. One model per cutoff or one model with the cutoff as a feature, chosen on validation. The model with the best validation log loss at the 30-minute cutoff is selected; ties within 1% go to the simpler model.
 
 **Pre-registered expectation:** a modest AUC gain over B3 (in the order of 0.01 to 0.03 at 30 minutes), a larger gain in recall at matched precision and in calibration, and the largest gains at the 60-minute cutoff and for S-Bahn transfers, where DB is weakest. A result below these expectations is reported as it is. These expectations were written against the linear B3 and are kept unchanged against the stricter B3; the first feature exploration (three days) shows an AUC gain of 0.009 at 30 minutes against it.
 
@@ -110,7 +110,7 @@ Strictly by time, whole service days only, no random splits (connections on the 
 
 | Period | Dates (service days) | Use |
 |---|---|---|
-| Training | 2026-09-24 to 2026-11-08 | fitting, cross-validation by rolling origin |
+| Training | 2026-09-24 to 2026-11-08 | fitting, cross-validation by rolling origin (first evaluation after 14 days, then weekly blocks, each fold fit on all earlier days) |
 | Validation | 2026-11-09 to 2026-11-22 | model and threshold selection, calibration |
 | **Test (locked)** | **2026-11-23 to 2026-12-12** | evaluated once, after all choices are fixed |
 | Robustness | from 2026-12-13 | reported separately |
@@ -124,3 +124,4 @@ The locked test period ends before the annual timetable change on 2026-12-13, wh
 - 2026-09-27: v0.3, dataset builder implements sections 1 and 2. Added exclusions for data quality (not known at cutoff, collector gap, stale label, DST hour) and T7 judges departures at the same minute together, so the result is independent of row order.
 - 2026-09-29: v0.4, first feature exploration (e05). B3 changed from logistic regression to gradient boosting on the same DB inputs, because a nonlinear model on DB's prognosis alone beats the linear one by 3.6 to 9.1% in log loss; with a linear B3 the headline would mostly measure nonlinearity. The linear version is kept as B3-lin. Section 3 drafted; locked after the second exploration.
 - 2026-09-29: feature pipeline implemented (no design change): all groups as in e05, shared by training and live prediction, with leakage tests (future rewrite, truncation at each cutoff).
+- 2026-09-29: v0.5, training pipeline (`src/nrw_connection_risk/training/`, [docs/TRAINING.md](docs/TRAINING.md)). Gradient boosting is implemented with scikit-learn's HistGradientBoosting instead of the LightGBM library: the same histogram algorithm with native missing values and categories, no compiled extra dependency on the ARM server, and already used in e05; B3 uses the identical implementation and settings. Specified without changing intent: the rolling-origin folds, the calibration procedure and the B1 cells. The test period is locked in code: reading it needs an explicit flag, and every evaluation is logged in `reports/test_log.jsonl`.

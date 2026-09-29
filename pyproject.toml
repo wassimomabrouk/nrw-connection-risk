@@ -23,6 +23,7 @@ dev = ["pytest>=8", "duckdb>=1.1", "pandas>=2.2", "scikit-learn>=1.5"]
 nrw-collector = "nrw_connection_risk.collector.main:main"
 nrw-dataset = "nrw_connection_risk.dataset.build:main"
 nrw-features = "nrw_connection_risk.features.build:main"
+nrw-evaluate = "nrw_connection_risk.training.evaluate:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
