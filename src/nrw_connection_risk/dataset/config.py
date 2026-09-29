@@ -8,7 +8,7 @@ from pathlib import Path
 
 @dataclass(frozen=True)
 class DatasetConfig:
-    hubs: dict[str, str]                      # EVA number -> station name
+    hubs: dict[str, str]                      # EVA number -> station name (role "hub" only)
     builder_version: int = 1
     min_parser_version: int = 2
     min_transfer_min: int = 4
@@ -28,7 +28,7 @@ def load_config(path: Path) -> DatasetConfig:
     with open(path.parent / "collector.toml", "rb") as f:
         stations = tomllib.load(f)["stations"]
     return DatasetConfig(
-        hubs={str(s["eva"]): s["name"] for s in stations},
+        hubs={str(s["eva"]): s["name"] for s in stations if s.get("role", "hub") == "hub"},
         builder_version=int(c["builder_version"]),
         min_parser_version=int(c["min_parser_version"]),
         min_transfer_min=int(c["candidates"]["min_transfer_min"]),

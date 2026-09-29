@@ -37,6 +37,10 @@ After a parser version change (see `PARSER_VERSION` in `collector/parse.py`), pa
 
 The service handles SIGTERM: it finishes the current request and flushes buffered rows before stopping, so a restart loses no data. The gap is a few seconds; `fchg` (full state every 30 minutes) repairs anything `rchg` missed.
 
+## Stations
+
+`config/collector.toml` lists every polled station with a role. `hub` stations are the transfer stations of the dataset; `feeder` stations lie upstream and are collected as context only (recent changes every 2 minutes instead of every minute). They were chosen by `tools/select_feeders.py`, which ranks stations 2 to 8 stops before the hubs by how many transfer candidates they cover. The collector refuses a schedule that would need more than 80% of the API rate limit on average.
+
 ## Failure scenarios
 
 | Symptom | Likely cause | Action |

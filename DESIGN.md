@@ -67,6 +67,8 @@ Findings that shape the design:
 - Context cannot be judged on three days: with a single weekend day, weekday, hour and hub effects mostly learn the particularities of individual days. It is re-tested with at least two weekends.
 
 The second exploration uses the feature pipeline code, not exploration code, and decides this section.
+
+**Feeder stations.** Because the missing information lies in the network state, the collector also polls stations 2 to 8 stops upstream of the hubs (role `feeder`, collected from 2026-09-29: the 12 stations from `tools/select_feeders.py --min-pos 4 --max-pos 10`, which together lie on the path of 47% of transfer candidates; stations closer than 4 stops were excluded because they give almost no lead time). Data that is not collected cannot be added later, so they are collected now; they enter the feature set only if an exploration shows a gain over the hub-level network features.
 ## 4. Baselines and models
 
 **How good DB already is** (service day 2026-09-24, `exploration/out/e04_db_prognosis_baseline.txt`). For every candidate, DB's prognosis for A and B was reconstructed as it was known at the cutoff, using only observations up to that moment:

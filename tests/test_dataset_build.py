@@ -133,3 +133,14 @@ def test_every_column_is_classified_once(table):
     assert len(C.ALL) == len(set(C.ALL))                       # no column in two groups
     assert got == set(C.ALL), f"unclassified: {got - set(C.ALL)}, missing: {set(C.ALL) - got}"
     assert not set(C.FEATURE_SAFE) & set(C.LABEL)
+
+
+def test_feeder_data_does_not_change_the_hub_dataset(tmp_path):
+    """Observations at a feeder station (same trip ids, other station) are ignored."""
+    base, _ = build_day(DAY, write_parsed(tmp_path / "a", scenario()), CFG)
+    feeder = [("plan", "8000274", utc("2026-09-24 06:00"), PLAN.replace("Köln Hbf", "Neuss Hbf")),
+              ("rchg", "8000274", utc("2026-09-24 07:40"),
+               rchg('<s id="1-2609240900-5"><ar ct="2609241059"/></s>'))]   # would change A's delay
+    with_feeder, _ = build_day(DAY, write_parsed(tmp_path / "b", scenario() + feeder), CFG)
+    pd.testing.assert_frame_equal(base.drop(columns=["collector_age_min"]),
+                                  with_feeder.drop(columns=["collector_age_min"]))

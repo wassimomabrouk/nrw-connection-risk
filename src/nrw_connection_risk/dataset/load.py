@@ -37,8 +37,9 @@ def _connect(parsed_root: Path) -> tuple[duckdb.DuckDBPyConnection, str]:
 
 
 def load_window(parsed_root: Path, t_from: pd.Timestamp, t_to: pd.Timestamp,
-                min_parser_version: int) -> Window:
-    """All parsed rows collected in [t_from, t_to] (naive UTC bounds)."""
+                min_parser_version: int, stations: list[str] | None = None) -> Window:
+    """All parsed rows collected in [t_from, t_to] (naive UTC bounds), optionally only
+    for the given stations (plan, observations, polls; the data span stays global)."""
     con, _ = _connect(parsed_root)
     d_from, d_to = t_from.date().isoformat(), t_to.date().isoformat()
     where = (f"CAST(date AS DATE) BETWEEN DATE '{d_from}' AND DATE '{d_to}' "
@@ -54,6 +55,7 @@ def load_window(parsed_root: Path, t_from: pd.Timestamp, t_to: pd.Timestamp,
             f"Parsed files in this window were written by a parser older than version "
             f"{min_parser_version}. Rebuild them: python tools/rebuild_parsed.py --raw <raw> --out <root> --replace")
 
+    only = "" if stations is None else "AND eva IN (" + ", ".join(f"'{e}'" for e in stations) + ")"
     plan = con.execute(f"""
         SELECT stop_id, event, eva, trip_key AS trip,
                arg_max(pt, collected_at)          AS pt,
@@ -67,17 +69,17 @@ def load_window(parsed_root: Path, t_from: pd.Timestamp, t_to: pd.Timestamp,
                arg_max(tl_number, collected_at)   AS num,
                min(collected_at)                  AS first_seen
         FROM parsed
-        WHERE {where} AND source = 'plan' AND event IN ('ar', 'dp') AND pt IS NOT NULL
+        WHERE {where} {only} AND source = 'plan' AND event IN ('ar', 'dp') AND pt IS NOT NULL
         GROUP BY stop_id, event, eva, trip_key""").df()
 
     obs = con.execute(f"""
         SELECT stop_id || '|' || event AS key, eva, collected_at AS obs, ct, ct_raw, cs
         FROM parsed
-        WHERE {where} AND source IN ('fchg', 'rchg') AND event IN ('ar', 'dp')
+        WHERE {where} {only} AND source IN ('fchg', 'rchg') AND event IN ('ar', 'dp')
           AND (ct IS NOT NULL OR cs IS NOT NULL)""").df()
 
     polls = con.execute(f"""
-        SELECT DISTINCT eva, collected_at AS t FROM parsed WHERE {where}""").df()
+        SELECT DISTINCT eva, collected_at AS t FROM parsed WHERE {where} {only}""").df()
     # session time zone is UTC, so the cast yields naive UTC (no pytz needed for fetchone)
     span = con.execute(f"""SELECT CAST(min(collected_at) AS TIMESTAMP), CAST(max(collected_at) AS TIMESTAMP)
                            FROM parsed WHERE {where}""").fetchone()

@@ -52,7 +52,8 @@ class Collector:
                                lambda e=st.eva: self._fetch("fchg", e), offset_s=i * 2)
             self.scheduler.add(f"plan:{st.eva}", self.s.plan_interval_s,
                                lambda e=st.eva: self._plan(e), offset_s=n * 2 + i * 2)
-            self.scheduler.add(f"rchg:{st.eva}", self.s.rchg_interval_s,
+            every = self.s.rchg_interval_s if st.role == "hub" else self.s.rchg_interval_feeder_s
+            self.scheduler.add(f"rchg:{st.eva}", every,
                                lambda e=st.eva: self._fetch("rchg", e),
                                offset_s=n * 4 + i * self.s.rchg_interval_s / n)
 

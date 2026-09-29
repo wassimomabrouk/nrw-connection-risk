@@ -1,4 +1,5 @@
-# Collector v1: the five hubs only. Feeder stations are added here in v1.1.
+# Collector v1.1: the five hubs plus feeder stations upstream (role = "feeder").
+# Feeders are collected for context only; the dataset uses stations with role "hub".
 
 [api]
 base_url = "https://apis.deutschebahn.com/db-api-marketplace/apis/timetables/v1"
@@ -7,7 +8,8 @@ timeout_s = 30
 max_retries = 3
 
 [schedule]
-rchg_interval_s = 60        # recent changes (last ~2 min), cheap
+rchg_interval_s = 60        # recent changes (last ~2 min) at hubs
+rchg_interval_feeder_s = 120  # at feeders: every 2 min is enough, rchg covers about 2 min
 fchg_interval_s = 1800      # full change state, repairs anything rchg missed
 plan_interval_s = 3600      # planned timetable, hour slices
 plan_hours_behind = 2       # on each plan run, fetch hours [now - behind, now + ahead]
@@ -40,3 +42,67 @@ name = "Essen Hbf"
 [[stations]]
 eva = "8000001"
 name = "Aachen Hbf"
+
+# Feeder stations: top 12 of `python tools/select_feeders.py --min-pos 4 --max-pos 10`
+# (2026-09-29, data of 24 to 26 September): together 47% of transfer candidates pass one of them
+# 4 to 10 stops before the hub. Collected as context only, not part of the dataset.
+
+[[stations]]
+eva = "8000274"
+name = "Neuss Hbf"
+role = "feeder"
+
+[[stations]]
+eva = "8000080"
+name = "Dortmund Hbf"
+role = "feeder"
+
+[[stations]]
+eva = "8000178"
+name = "Horrem"
+role = "feeder"
+
+[[stations]]
+eva = "8001595"
+name = "Düsseldorf-Unterrath"
+role = "feeder"
+
+[[stations]]
+eva = "8079140"
+name = "Köln-Blumenberg"
+role = "feeder"
+
+[[stations]]
+eva = "8001469"
+name = "Dinslaken"
+role = "feeder"
+
+[[stations]]
+eva = "8000135"
+name = "Troisdorf"
+role = "feeder"
+
+[[stations]]
+eva = "8001082"
+name = "Bonn-Bad Godesberg"
+role = "feeder"
+
+[[stations]]
+eva = "8003367"
+name = "Köln-Dellbrück"
+role = "feeder"
+
+[[stations]]
+eva = "8001592"
+name = "Düsseldorf-Rath"
+role = "feeder"
+
+[[stations]]
+eva = "8006718"
+name = "Wuppertal-Vohwinkel"
+role = "feeder"
+
+[[stations]]
+eva = "8000105"
+name = "Frankfurt(Main)Hbf"
+role = "feeder"

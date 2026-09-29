@@ -49,7 +49,7 @@ def build_day(day: date, parsed_root: Path, cfg: DatasetConfig) -> tuple[pd.Data
     t0, t1 = service_day_bounds(day, cfg.start_hour_local)
     need_until = t1 + pd.Timedelta(hours=cfg.label_horizon_h)
     w = load_window(parsed_root, t0 - pd.Timedelta(days=1), need_until + pd.Timedelta(hours=6),
-                    cfg.min_parser_version)
+                    cfg.min_parser_version, stations=list(cfg.hubs))
     if w.data_end < need_until:
         raise IncompleteDay(f"data ends {w.data_end} UTC, labels need data until {need_until} UTC")
 

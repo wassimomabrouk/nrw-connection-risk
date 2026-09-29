@@ -19,7 +19,7 @@ src/nrw_connection_risk/
     collector/                   API client, XML parsing, storage, scheduler, health checks
     dataset/                     transfer candidates, point-in-time state, labels (training table)
 tests/                           unit and integration tests (pytest)
-tools/                           API smoke test, collection status, raw-to-parsed rebuild
+tools/                           API smoke test, collection status, raw-to-parsed rebuild, feeder selection
 deploy/                          systemd units for the collector and the daily backup
 docs/                            operations runbook, dataset card
 exploration/                     exploration scripts e01 to e04 and their reports
