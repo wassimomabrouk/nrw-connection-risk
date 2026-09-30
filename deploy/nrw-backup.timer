@@ -1,5 +1,5 @@
 [Unit]
-Description=Daily backup of NRW raw collector data
+Description=Daily backup of NRW raw collector data and prediction log
 
 [Timer]
 OnCalendar=*-*-* 03:30:00 UTC

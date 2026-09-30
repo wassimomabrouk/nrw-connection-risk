@@ -11,7 +11,7 @@ How the data collector runs in production, how it is monitored, and how to recov
 | Parsed layer | `data/collector/parsed/source=*/date=*/*.parquet` | One row per stop, event and observation. Derived; can be rebuilt from raw |
 | Heartbeat | `data/collector/heartbeat.json` | Last success per endpoint, success and failure counts |
 | Monitoring | healthchecks.io, two checks | `nrw-collector`: ping every 5 min while API calls succeed, alert after 15 min of silence. `nrw-backup`: ping after each successful daily backup, alert after 30 hours |
-| Backup (`nrw-backup.timer`) | Google Drive via rclone | Daily copy of the raw layer at about 03:30 UTC. `copy` semantics: deletions on the server never propagate |
+| Backup (`nrw-backup.timer`) | Google Drive via rclone | Daily copy of the raw layer and the API's prediction log at about 03:30 UTC. `copy` semantics: deletions on the server never propagate. Model bundles are not backed up: they are refitted from the data |
 
 Unit files are versioned in [`deploy/`](../deploy). Secrets live only in `.env` on the server (mode 600) and in `~/.config/rclone/rclone.conf` (mode 600); neither is committed.
 
@@ -25,6 +25,7 @@ ssh -i KEY ubuntu@HOST "cat ~/nrw-connection-risk/data/collector/heartbeat.json"
 ssh -i KEY ubuntu@HOST "journalctl -u nrw-collector -n 50 --no-pager"             # recent logs
 ssh -i KEY ubuntu@HOST "systemctl list-timers nrw-backup.timer --no-pager"        # next backup
 ssh -i KEY ubuntu@HOST "rclone size gdrive:nrw-connection-risk-backup/raw"        # backup size
+ssh -i KEY ubuntu@HOST "rclone size gdrive:nrw-connection-risk-backup/predictions"
 ```
 
 ## Deploying a code change
@@ -63,8 +64,9 @@ A new model: copy its folder to `models/` on the server and restart (`docker com
 
 ## Restore
 
-1. Copy the raw layer back from the backup:
+1. Copy the raw layer and the prediction log back from the backup:
    `rclone copy gdrive:nrw-connection-risk-backup/raw data/collector/raw`
+   `rclone copy gdrive:nrw-connection-risk-backup/predictions data/serving/predictions`
 2. Rebuild the parsed layer from raw:
    `python tools/rebuild_parsed.py --out data/collector`
 3. Check the result: `python tools/collector_status.py`

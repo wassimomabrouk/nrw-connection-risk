@@ -1,5 +1,5 @@
 [Unit]
-Description=NRW connection risk - daily backup of raw collector data to Google Drive
+Description=NRW connection risk - daily backup of raw collector data and the prediction log to Google Drive
 After=network-online.target
 Wants=network-online.target
 
@@ -9,5 +9,7 @@ User=ubuntu
 EnvironmentFile=-/home/ubuntu/nrw-connection-risk/.env
 # copy, not sync: a backup must never propagate deletions from the server
 ExecStart=/usr/bin/rclone copy /home/ubuntu/nrw-connection-risk/data/collector/raw gdrive:nrw-connection-risk-backup/raw --config /home/ubuntu/.config/rclone/rclone.conf --transfers 2 --log-level INFO
+# the live prediction log (monitoring input); it cannot be regenerated, unlike the parsed layer
+ExecStart=/bin/sh -c 'mkdir -p /home/ubuntu/nrw-connection-risk/data/serving/predictions && /usr/bin/rclone copy /home/ubuntu/nrw-connection-risk/data/serving/predictions gdrive:nrw-connection-risk-backup/predictions --config /home/ubuntu/.config/rclone/rclone.conf --transfers 2 --log-level INFO'
 # runs only if the copy succeeded; a missing ping triggers a healthchecks.io alert
 ExecStartPost=/bin/sh -c 'if [ -n "$$BACKUP_HEALTHCHECK_URL" ]; then curl -fsS -m 10 --retry 3 "$$BACKUP_HEALTHCHECK_URL" > /dev/null || true; fi'
