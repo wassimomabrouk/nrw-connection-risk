@@ -314,11 +314,18 @@ def _model_id(service: Service) -> str | None:
 def build_service(root: Path, config_path: Path | None = None) -> Service:
     scfg = load_serving_config(config_path or root / "config" / "serving.toml", root)
     dcfg = load_config(root / "config" / "dataset.toml")
-    path = scfg.models_dir / scfg.bundle if scfg.bundle else latest_bundle(scfg.models_dir)
-    if path is None or not (path / "model.json").exists():
+    # a missing, unreadable or broken bundle must not crash-loop the container: the service
+    # keeps running and reports the reason in /health
+    try:
+        path = scfg.models_dir / scfg.bundle if scfg.bundle else latest_bundle(scfg.models_dir)
+        found = path is not None and (path / "model.json").exists()
+    except Exception as e:
+        log.exception("could not read %s", scfg.models_dir)
+        return Service(scfg, dcfg, None, startup_error=f"models folder {scfg.models_dir}: {type(e).__name__}: {e}")
+    if not found:
         log.warning("no model bundle under %s: serving without predictions", scfg.models_dir)
         return Service(scfg, dcfg, None)
-    try:                                         # a bad bundle must not crash-loop the container
+    try:
         bundle = load_bundle(path)
     except Exception as e:
         log.exception("could not load %s", path)

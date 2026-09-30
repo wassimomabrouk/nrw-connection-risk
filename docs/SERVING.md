@@ -16,7 +16,7 @@ collector (systemd)                          API container
 ```
 
 - **Fresh data.** The collector writes each API response to the raw layer immediately but flushes parsed Parquet only every 10 minutes. The service reads the parsed layer plus the raw responses from 20 minutes before its last flush onwards, parsed with the production parser, so predictions use data that is at most a minute old. The overlap also covers rows the parsed layer lacks (a flush in progress, a collector restart before flushing); rows read twice change nothing. Damaged raw records are skipped, never fatal. Only the partitions of the needed days are opened, so a scoring run does not slow down as the collection grows.
-- **No training/serving skew.** A live row is built exactly like a dataset row with cutoff = now: the same candidate rules (T1–T7), the same point-in-time state, the same feature functions with the feature settings stored in the model bundle. `tests/test_serving.py` checks that the features computed live at each cutoff moment equal those of the offline dataset and feature builders.
+- **No training/serving skew.** A live row is built exactly like a dataset row with cutoff = now: the same candidate rules (T1 to T7), the same point-in-time state, the same feature functions with the feature settings stored in the model bundle. `tests/test_serving.py` checks that the features computed live at each cutoff moment equal those of the offline dataset and feature builders.
 - **Which model.** The bundle holds one model per trained cutoff (60, 30, 10 minutes). A connection is scored with the model of the cutoff nearest to the time left until arrival.
 - **Not scored** (as in the dataset): A already cancelled, no data at the hub for more than 45 minutes, times in the DST transition hour. Listed with `include_unscored=true`.
 
@@ -71,6 +71,7 @@ scp -i KEY -r models\<model_id> ubuntu@HOST:~/nrw-connection-risk/models/
 On the server (once: `sudo apt-get install -y docker.io docker-compose-v2 && sudo usermod -aG docker ubuntu`, then log in again):
 ```
 cd ~/nrw-connection-risk && git pull && mkdir -p data/serving models
+echo NRW_UID=$(id -u) >> .env && echo NRW_GID=$(id -g) >> .env     # once: the container runs as your user
 .venv/bin/pip install -e '.[dev]' && .venv/bin/python -m pytest -q && sudo systemctl restart nrw-collector
 docker compose up -d --build              # set SKLEARN_VERSION=... first if your PC has another version than 1.9.1
 curl -s localhost:8000/health

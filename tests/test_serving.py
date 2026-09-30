@@ -326,3 +326,17 @@ def test_background_loop_scores_and_flushes_on_stop(tmp_path, bundle):
     thread.join(timeout=20)
     assert svc.runs >= 2 and svc.last_error is None and not thread.is_alive()
     assert len(pd.read_parquet(tmp_path / "log")) == 2           # logged once, flushed at shutdown
+
+
+def test_unreadable_models_folder_does_not_crash_the_service(tmp_path, monkeypatch):
+    import shutil
+    from pathlib import Path
+    from nrw_connection_risk.serving import api as api_mod
+    root = tmp_path / "repo"
+    shutil.copytree(Path(__file__).resolve().parents[1] / "config", root / "config")
+
+    def denied(_):
+        raise PermissionError(13, "Permission denied", "models/x/model.json")
+    monkeypatch.setattr(api_mod, "latest_bundle", denied)
+    r = TestClient(create_app(build_service(root))).get("/health")
+    assert r.status_code == 503 and "PermissionError" in r.json()["last_error"]

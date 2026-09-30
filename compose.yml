@@ -8,6 +8,11 @@ services:
         SKLEARN_VERSION: ${SKLEARN_VERSION:-1.9.1}
     image: nrw-connection-risk-api
     restart: unless-stopped
+    # Run as the server user that owns the data and model folders (uid/gid from `id`,
+    # set once in the server's .env as NRW_UID and NRW_GID); 1000 is the usual default.
+    user: "${NRW_UID:-1000}:${NRW_GID:-1000}"
+    environment:
+      HOME: /tmp
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
