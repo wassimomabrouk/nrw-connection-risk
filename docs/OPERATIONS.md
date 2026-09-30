@@ -50,6 +50,16 @@ ssh -i KEY ubuntu@HOST "docker compose -f ~/nrw-connection-risk/compose.yml logs
 
 A new model: copy its folder to `models/` on the server and restart (`docker compose restart api`); the API loads the newest bundle.
 
+## Monitoring
+
+`nrw-monitor.timer` runs the daily evaluation at 09:15 UTC with the server's `.venv` ([MONITORING.md](MONITORING.md)). Optional `MONITOR_HEALTHCHECK_URL` in `.env`: pinged after each successful run.
+
+```
+ssh -i KEY ubuntu@HOST "cat ~/nrw-connection-risk/data/monitoring/summary.md"          # latest results
+ssh -i KEY ubuntu@HOST "journalctl -u nrw-monitor --no-pager -n 30"                    # last runs
+ssh -i KEY ubuntu@HOST "systemctl list-timers nrw-monitor.timer --no-pager"            # next run
+```
+
 ## Stations
 
 `config/collector.toml` lists every polled station with a role. `hub` stations are the transfer stations of the dataset; `feeder` stations lie upstream and are collected as context only (recent changes every 2 minutes instead of every minute). They were chosen by `tools/select_feeders.py`, which ranks stations 2 to 8 stops before the hubs by how many transfer candidates they cover. The collector refuses a schedule that would need more than 80% of the API rate limit on average.

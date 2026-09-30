@@ -1,0 +1,15 @@
+[Unit]
+Description=NRW connection risk - daily evaluation of the live predictions (monitoring)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/nrw-connection-risk
+EnvironmentFile=-/home/ubuntu/nrw-connection-risk/.env
+Environment=PYTHONUNBUFFERED=1
+# labels every finished service day with the dataset builder and scores the logged predictions
+ExecStart=/home/ubuntu/nrw-connection-risk/.venv/bin/python -m nrw_connection_risk.monitoring.daily
+# runs only if the evaluation succeeded; a missing ping triggers a healthchecks.io alert (optional)
+ExecStartPost=/bin/sh -c 'if [ -n "$$MONITOR_HEALTHCHECK_URL" ]; then curl -fsS -m 10 --retry 3 "$$MONITOR_HEALTHCHECK_URL" > /dev/null || true; fi'
+Nice=10

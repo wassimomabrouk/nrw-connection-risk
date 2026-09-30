@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily evaluation of NRW live predictions
+
+[Timer]
+# a service day ends at 04:00 local (02:00 or 03:00 UTC); labels need 6 more hours of data
+OnCalendar=*-*-* 09:15:00 UTC
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

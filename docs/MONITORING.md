@@ -1,0 +1,38 @@
+# Monitoring
+
+Every morning the server evaluates the previous service day of the live API: how good the logged predictions were, whether the inputs still look like the training data, and whether the service covered all connections. Code: `src/nrw_connection_risk/monitoring/`. Settings: `config/monitoring.toml`. Schedule: `deploy/nrw-monitor.timer` (09:15 UTC).
+
+## How a day is evaluated
+
+```
+prediction log (API)          collector data
+one row per connection        the day plus 6 hours
+and cutoff (60/30/10)         |
+        |                     dataset builder: candidates, labels, exclusions (as in training)
+        +------ join on (arrival, departure, cutoff) ------+
+                               |
+            evaluated rows: model vs B3 vs DB rule        -> daily/service_day=D.json
+            all logged rows: drift against training        -> joined/service_day=D.parquet
+            coverage, logging lag, data age                -> summary.json, summary.md
+```
+
+- **Labels.** Outcomes come from the dataset builder, so a live prediction is labelled exactly like a training row: same failure rule, same exclusions (collector gaps, stale labels, DST hour).
+- **Row types.** A logged prediction is `evaluated` if the dataset builder has it as an eligible row, `excluded` if it is a candidate with an exclusion reason, and `not_a_candidate` if the full-day timetable does not make it a transfer candidate (the live service only knew the timetable up to the moment of scoring).
+- **Performance** per cutoff: log loss, Brier score, AUC and calibration of the model and of B3, DB rule precision and recall, recall of each at the DB rule's precision. The summary pools all days and gives 95% intervals from resampling whole days.
+- **Drift.** Every model card holds a profile of the training data: decile bins for numeric inputs, value shares for categorical ones, and the share of missing values. The population stability index (PSI) compares each input's live distribution with it: below 0.1 stable, 0.1 to 0.25 moderate, above 0.25 large. The live failure rate is compared with the training failure rate per cutoff. Days with fewer than 500 logged rows get no PSI.
+- **Operations.** Coverage (share of the day's eligible connections that the live service logged and that could be evaluated), logging lag after each cutoff, and data age at the moment of scoring.
+
+## Running it
+
+```
+python -m nrw_connection_risk.monitoring.daily                    # all finished days without a report
+python -m nrw_connection_risk.monitoring.daily --day 2026-10-01   # one day (again)
+```
+
+A day is finished once its data reaches 6 hours past its end (04:00 local the next morning). Reports are written to `data/monitoring/` on the server. Days without predictions are skipped; days whose outcomes cannot be built yet are recorded with the reason (`no_outcomes`).
+
+## Reading the results honestly
+
+- Until November the API serves a stand-in model fitted on a few days, so live figures describe the system, not the final model.
+- Live monitoring does not replace the locked test (DESIGN.md section 6). It checks that the deployed model behaves as evaluated offline and warns early when the data changes, for example at the timetable change on 13 December.
+- The first days after a deployment can be incomplete: a day is only fully covered if the API ran for the whole day.

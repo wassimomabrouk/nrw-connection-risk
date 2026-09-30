@@ -20,18 +20,20 @@ config/dataset.toml              candidate rules, cutoffs and data-quality thres
 config/features.toml             feature groups in use, hub-state settings, holidays
 config/training.toml             splits, models, calibration, evaluation settings
 config/serving.toml              live service: data paths, scoring interval, prediction log
+config/monitoring.toml           daily evaluation of the live predictions, drift thresholds
 src/nrw_connection_risk/
     collector/                   API client, XML parsing, storage, scheduler, health checks
     dataset/                     transfer candidates, point-in-time state, labels (training table)
     features/                    point-in-time features, shared by training and live prediction
     training/                    baselines B0-B3, models, calibration, time-based evaluation, test lock, model bundle
     serving/                     live scoring every minute and the FastAPI service
+    monitoring/                  daily live evaluation against observed outcomes, drift (PSI), operations
 tests/                           unit and integration tests (pytest)
 tools/                           API smoke test, collection status, raw-to-parsed rebuild, feeder selection
-deploy/                          systemd units for the collector and the daily backup
+deploy/                          systemd units for the collector, the daily backup and the daily monitoring
 Dockerfile, compose.yml          container for the API
 .github/workflows/ci.yml         tests on Python 3.11 and 3.14, image build and smoke test
-docs/                            operations runbook, dataset card, feature card, training and evaluation, serving
+docs/                            operations runbook, dataset card, feature card, training and evaluation, serving, monitoring
 exploration/                     exploration scripts e01 to e05 and their reports
 section0/                        feasibility scripts on the historical dataset
 ```
@@ -91,6 +93,14 @@ uvicorn nrw_connection_risk.serving.api:create_app_from_env --factory --port 800
 ```
 
 Every minute, all upcoming connections at the five hubs get a failure probability from the model and from the DB baseline (B3), computed with the same feature code as training; a test checks that live and offline features are identical. Predictions at the 60, 30 and 10-minute marks are logged for monitoring. Runs in Docker next to the collector. Details: [docs/SERVING.md](docs/SERVING.md).
+
+## Monitoring
+
+```
+python -m nrw_connection_risk.monitoring.daily
+```
+
+Every morning the server labels the previous day's logged predictions with the dataset builder (the same labels as training) and scores the model, B3 and the DB rule on live traffic. It also compares every input with the training data (population stability index) and reports coverage, logging lag and data age. Details: [docs/MONITORING.md](docs/MONITORING.md).
 
 ## Data source
 

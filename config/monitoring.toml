@@ -1,0 +1,19 @@
+# Daily monitoring of the live service (docs/MONITORING.md). Paths relative to the repo root.
+
+[data]
+parsed = "data/collector/parsed"          # outcomes are labelled from the collector's data
+predictions = "data/serving/predictions"  # the API's prediction log
+models = "models"                         # model cards hold the training reference profile
+out = "data/monitoring"
+
+[evaluation]
+primary_cutoff = 30
+calibration_bins = 10
+bootstrap_n = 1000
+bootstrap_n_auc = 200
+seed = 42
+
+[drift]
+moderate = 0.1                            # PSI thresholds
+large = 0.25
+min_rows = 500                            # fewer logged rows on a day: no PSI (too noisy)

@@ -18,6 +18,7 @@ from pathlib import Path
 from ..dataset.build import _git_commit
 from ..dataset.config import load_config
 from ..features.config import load_feature_config
+from ..monitoring.profile import build_profile
 from .bundle import COMPANION, Bundle, new_model_id, save_bundle, versions
 from .config import MODELS, load_training_config
 from .evaluate import available_days, load_rows
@@ -68,6 +69,9 @@ def main(argv: list[str] | None = None) -> int:
         "dataset_config": load_config(args.dataset_config).as_dict(),
         "git_commit": _git_commit(), "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "versions": versions(),
+        # training distribution of every input, for drift monitoring (monitoring/profile.py)
+        "reference_profile": build_profile(rows, cols),
+        "reference_fail_rate": {str(int(k)): float(v) for k, v in rows.groupby("cutoff_min").label_fail.mean().items()},
     }
     out = save_bundle(Bundle(models=models, meta=meta), args.out)
     print(f"saved {out}")
