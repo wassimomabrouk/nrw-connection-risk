@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from ..dataset.state import state_at
-from .columns import ALL_FEATURES
+from .columns import ALL_FEATURES, GROUPS
 from .config import FeatureConfig
 
 MIN = pd.Timedelta(minutes=1)
@@ -109,13 +109,60 @@ def hub(rows: pd.DataFrame, plan: pd.DataFrame, obs: pd.DataFrame, cfg: FeatureC
     """Hub state at the last grid point at or before each row's cutoff."""
     step = pd.Timedelta(minutes=cfg.grid_min)
     g = rows.t_cut.dt.floor(step)
-    hub_t, line_t = hub_state(plan, obs, g.min(), g.max(), cfg)
+    hub_t, line_t = hub_state(plan[plan.eva.isin(rows.eva.unique())], obs, g.min(), g.max(), cfg)
     q = pd.DataFrame({"eva": rows.eva.values, "g": g.values, "line": rows.line_a.values, "_row": np.arange(len(rows))})
     q = q.merge(hub_t, on=["eva", "g"], how="left").merge(line_t, on=["eva", "g", "line"], how="left")
     q = q.sort_values("_row")
     out = q[["hub_mean_delay", "hub_share_late5", "hub_share_cancel", "line_recent_delay_a"]].astype(float)
     out.index = rows.index
     return out
+
+
+def _feeders_on(paths: pd.Series, name_to_eva: dict[str, str]) -> list[list[str]]:
+    """Feeder stations on each planned path (station names separated by |)."""
+    return [[name_to_eva[n] for n in p.split("|") if n in name_to_eva] if isinstance(p, str) else [] for p in paths]
+
+
+def feeder(rows: pd.DataFrame, plan: pd.DataFrame, obs: pd.DataFrame, cfg: FeatureConfig) -> pd.DataFrame:
+    """Corridor state: the hub-state quantities at the feeder stations on A's (and B's) planned
+    path before the hub, averaged over those feeders, at the last grid point at or before the
+    cutoff. Same point-in-time rules as the hub state (hub_state does the work)."""
+    cols = GROUPS["feeder"]
+    out = pd.DataFrame(np.nan, index=rows.index, columns=cols)
+    names = cfg.feeder_names
+    fplan = plan[plan.eva.isin(list(names))]
+    if rows.empty or fplan.empty:
+        return out
+    name_to_eva = {n: e for e, n in names.items()}
+    # planned path into the hub = the path of the arrival event at the hub, used only if that
+    # timetable entry had been seen by the cutoff
+    arr = plan[plan.eva.isin(rows.eva.unique()) & (plan.event == "ar")].drop_duplicates(["eva", "stop_id"])
+    arr = arr.set_index(["eva", "stop_id"])
+    step = pd.Timedelta(minutes=cfg.grid_min)
+    g = rows.t_cut.dt.floor(step)
+    fed_t, line_t = hub_state(fplan, obs, g.min(), g.max(), cfg)
+    if fed_t.empty:
+        return out
+    fed_t = fed_t[["eva", "g", "hub_mean_delay"]]
+    for side in ("a", "b"):
+        idx = pd.MultiIndex.from_arrays([rows.eva, rows[f"stop_id_{side}"]])
+        known = (arr.first_seen.reindex(idx).to_numpy() <= rows.t_cut.to_numpy())
+        paths = np.where(known, arr.path.reindex(idx).to_numpy(), None)
+        on = _feeders_on(paths, name_to_eva)
+        q = pd.DataFrame({"_row": np.arange(len(rows)), "g": g.values, "line": rows.line_a.values, "eva": on})
+        q = q.explode("eva").dropna(subset=["eva"])
+        if q.empty:
+            continue
+        q = q.merge(fed_t, on=["eva", "g"], how="left")
+        if side == "a":
+            q = q.merge(line_t, on=["eva", "g", "line"], how="left")
+            agg = q.groupby("_row").agg(d=("hub_mean_delay", "mean"), ld=("line_recent_delay_a", "mean"))
+            out.iloc[agg.index, out.columns.get_loc("corridor_line_delay_a")] = agg.ld.to_numpy()
+            out.iloc[agg.index, out.columns.get_loc("corridor_delay_a")] = agg.d.to_numpy()
+        else:
+            agg = q.groupby("_row").hub_mean_delay.mean()
+            out.iloc[agg.index, out.columns.get_loc("corridor_delay_b")] = agg.to_numpy()
+    return out.astype(float)
 
 
 def context(rows: pd.DataFrame, cfg: FeatureConfig) -> pd.DataFrame:
@@ -148,7 +195,7 @@ def compute_all(rows: pd.DataFrame, plan: pd.DataFrame, obs: pd.DataFrame, event
     if rows.empty:
         return pd.DataFrame(columns=ALL_FEATURES, index=rows.index)
     parts = [db(rows), hub(rows, plan, obs, cfg), freshness(rows), context(rows, cfg),
-             trend(rows, obs), messages(rows, event_msgs, stop_msgs)]
+             trend(rows, obs), messages(rows, event_msgs, stop_msgs), feeder(rows, plan, obs, cfg)]
     out = pd.concat(parts, axis=1)
     out = out.loc[:, ~out.columns.duplicated()]
     return out[ALL_FEATURES]

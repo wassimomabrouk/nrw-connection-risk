@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from conftest import write_parsed
 from synthetic_features import write_days
 from test_dataset_build import CFG, DAY, KOELN, rchg, scenario, utc
-from test_features_build import MESSAGE
+from test_features_build import AACHEN, FEEDER_DATA, FEEDERS, MESSAGE
 from nrw_connection_risk.collector.client import ApiResponse
 from nrw_connection_risk.collector.storage import RawStore
 from nrw_connection_risk.dataset.build import build_day as build_dataset_day
@@ -152,6 +152,33 @@ def test_live_features_equal_offline_features(tmp_path, bundle):
         pd.testing.assert_frame_equal(off.set_index(key)[ALL_FEATURES].sort_index(),
                                       live.set_index(key)[ALL_FEATURES].sort_index(), check_dtype=False)
         assert live.p_model.between(0, 1).all() and live.p_B3.between(0, 1).all()
+
+
+def with_feeder_group(bundle):
+    """The same models, with a model card whose feature settings use the feeder group."""
+    meta = json.loads(json.dumps(bundle.meta))
+    meta["feature_config"] = {**FEEDERS.as_dict(), "groups": ["db", "hub", "feeder"]}
+    return bundle_mod.Bundle(models=bundle.models, meta=meta)
+
+
+def test_live_feeder_features_equal_offline_features(tmp_path, bundle):
+    """The feeder group, too, is computed live exactly as offline, and the service reads the
+    feeder stations only for a model that uses them."""
+    parsed = write_parsed(tmp_path, scenario() + FEEDER_DATA)
+    df, meta = build_dataset_day(DAY, parsed, CFG)
+    offline, _ = build_feature_day(DAY, write_day(df, meta, tmp_path / "ds"), parsed, CFG.hubs, FEEDERS)
+    fb = with_feeder_group(bundle)
+    svc = Service(ServingConfig(parsed=parsed, raw=tmp_path / "raw", log_dir=tmp_path / "log"), CFG, fb)
+    assert svc.stations == [KOELN, AACHEN]
+    plain = Service(ServingConfig(parsed=parsed, raw=tmp_path / "raw", log_dir=tmp_path / "log2"), CFG, bundle)
+    assert plain.stations == [KOELN]
+    for L in (60, 30, 10):
+        off = offline[offline.cutoff_min == L]
+        live = score(load_live(parsed, tmp_path / "raw", off.t_cut.iloc[0], 6, svc.stations, 2), fb, CFG, 2, 65, 45)
+        key = ["stop_id_a", "stop_id_b"]
+        pd.testing.assert_frame_equal(off.set_index(key)[ALL_FEATURES].sort_index(),
+                                      live.set_index(key)[ALL_FEATURES].sort_index(), check_dtype=False)
+        assert live.corridor_delay_a.notna().any()
 
 
 def test_rows_that_cannot_be_scored(tmp_path, bundle):

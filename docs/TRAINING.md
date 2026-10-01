@@ -40,6 +40,12 @@ python -m nrw_connection_risk.training.feature_selection
 
 Decides the model's feature groups once, with the rule pre-registered in DESIGN.md section 3 and `config/feature_selection.toml`: gradient boosting (one model per cutoff, no calibration) on expanding windows of whole days with daily folds; every group is compared with the variant without it (leave out for the reference groups, add for the others), against a noise floor from refitting the reference with another seed. Refuses days outside the training period and an incomplete window (`--allow-missing` overrides and is recorded). Writes `runs/<timestamp>-e06/` (`report.md`, `decision.json`, `predictions.parquet`) and a copy of the report to `exploration/out/e06_feature_selection.md`. Fits several variants on every fold, so it takes a while; it prints progress.
 
+e07 (feeder group) uses the same code with its own configuration, on top of the groups e06 wrote into `config/features.toml`, and writes `exploration/out/e07_feeder_selection.md`:
+
+```
+python -m nrw_connection_risk.training.feature_selection --config config/feature_selection_e07.toml
+```
+
 ## Output: `runs/<timestamp>-<mode>/`
 
 | File | Content |

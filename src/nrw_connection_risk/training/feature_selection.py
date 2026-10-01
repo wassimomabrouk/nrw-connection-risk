@@ -1,4 +1,4 @@
-"""Second feature exploration (e06): decide the model's feature groups with a pre-registered rule.
+"""Feature selection with a pre-registered rule: e06 (second feature exploration) and e07 (feeder group).
 
 DESIGN.md section 3. Every group must earn its place under the same rule: groups of the
 reference set are tested by leaving them out, other groups by adding them. All variants are
@@ -59,6 +59,9 @@ class SelectionConfig:
     add: tuple[str, ...]
     restricted: dict[str, date] = field(default_factory=dict)
     rule: Rule = field(default_factory=Rule)
+    name: str = "e06"                  # run folder suffix and report title
+    report: str = "exploration/out/e06_feature_selection.md"     # copy of the report kept in git
+    reference_from: str = ""           # where the reference groups came from, if not listed
 
     def __post_init__(self):
         feature_columns(list(self.reference) + list(self.add) + list(self.restricted))   # unknown groups raise
@@ -72,20 +75,28 @@ class SelectionConfig:
     def as_dict(self) -> dict:
         return {"first_day": str(self.first_day), "last_day": str(self.last_day),
                 "min_train_days": self.min_train_days, "reference": list(self.reference),
+                "reference_from": self.reference_from, "name": self.name, "report": self.report,
                 "drop": list(self.drop), "add": list(self.add),
                 "restricted": {k: str(v) for k, v in self.restricted.items()}, "rule": self.rule.__dict__}
 
 
-def load_selection_config(path: Path) -> SelectionConfig:
+def load_selection_config(path: Path, root: Path = ROOT) -> SelectionConfig:
+    """`[reference] groups = [...]`, or `[reference] from = "config/features.toml"` to take the
+    groups a previous selection wrote there (e07 builds on the e06 result)."""
     with open(path, "rb") as f:
         c = tomllib.load(f)
-    d = c["data"]
+    d, ref, out = c["data"], c["reference"], c.get("output", {})
+    if "from" in ref:
+        groups, source = load_feature_config(root / ref["from"]).groups, ref["from"]
+    else:
+        groups, source = ref["groups"], ""
     return SelectionConfig(
         first_day=date.fromisoformat(d["first_day"]), last_day=date.fromisoformat(d["last_day"]),
-        min_train_days=int(d["min_train_days"]), reference=tuple(c["reference"]["groups"]),
+        min_train_days=int(d["min_train_days"]), reference=tuple(groups),
         drop=tuple(c["candidates"]["drop"]), add=tuple(c["candidates"]["add"]),
         restricted={k: date.fromisoformat(v) for k, v in c.get("restricted", {}).items()},
-        rule=Rule(**c["rule"]))
+        rule=Rule(**c["rule"]), name=out.get("name", "e06"),
+        report=out.get("report", "exploration/out/e06_feature_selection.md"), reference_from=source)
 
 
 # ---------------------------------------------------------------- variants and tests
@@ -180,6 +191,19 @@ def compare(rows: pd.DataFrame, p_with: np.ndarray, p_without: np.ndarray, n: in
     return out
 
 
+def per_slice(rows: pd.DataFrame, p_with: np.ndarray, p_without: np.ndarray, col: str, L: int) -> dict[str, float]:
+    """Relative log loss reduction per value of `col` at cutoff L (point estimates)."""
+    if col not in rows:
+        return {}
+    m = ~np.isnan(p_with) & ~np.isnan(p_without) & (rows.cutoff_min.to_numpy() == L)
+    y = rows.label_fail.astype(int).to_numpy()
+    out = {}
+    for v in sorted(rows.loc[m, col].astype(str).unique()):
+        k = m & (rows[col].astype(str).to_numpy() == v)
+        out[v] = float(1 - pointwise_log_loss(y[k], p_with[k]).mean() / pointwise_log_loss(y[k], p_without[k]).mean())
+    return out
+
+
 def threshold(rule: Rule, noise: dict[int, dict]) -> float:
     """Minimum gain at the primary cutoff."""
     return max(rule.min_gain, rule.noise_multiple * abs(noise[rule.primary_cutoff]["gain"]))
@@ -229,19 +253,22 @@ def _frame_table(df: pd.DataFrame) -> str:
 
 def write_report(path: Path, info: dict, results: list[dict], vs_b3: pd.DataFrame, daily: pd.DataFrame) -> None:
     P = info["rule"]["primary_cutoff"]
-    L = [f"# e06: second feature exploration", "",
+    title = {"e06": "second feature exploration", "e07": "feeder group"}.get(info["name"], "feature selection")
+    L = [f"# {info['name']}: {title}", "",
          f"Service days {info['window'][0]} to {info['window'][1]} ({info['days']} days, "
          f"{info['rows']:,} rows), expanding window with daily folds: {info['eval_days']} evaluation days "
          f"({info['first_eval']} to {info['last_eval']}). Model: gradient boosting, one model per cutoff, "
-         f"no calibration, settings from config/training.toml. Rule: config/feature_selection.toml "
-         f"(sha256 {info['config_sha256'][:12]}), DESIGN.md section 3. Code {info['git_commit']}.", ""]
+         f"no calibration, settings from config/training.toml. Rule: {info['config_path']} "
+         f"(sha256 {info['config_sha256'][:12]}), DESIGN.md section 3. Code {info['git_commit']}.", "",
+         f"Reference groups: {', '.join(info['selection']['reference'])}"
+         + (f" (from {info['selection']['reference_from']})" if info["selection"]["reference_from"] else "") + ".", ""]
     for w in info["warnings"]:
         L.append(f"> **Warning:** {w}")
     if info["warnings"]:
         L.append("")
     n = info["noise"]
     L += ["## Noise floor", "",
-          f"Refitting the reference with another seed changes log loss by "
+          "Refitting the reference with another seed changes log loss by "
           + ", ".join(f"{_pct(n[str(c)]['gain'])} at {c} min" for c in sorted(map(int, n))) + ". "
           f"Threshold at {P} min: max({info['rule']['min_gain']:.1%}, {info['rule']['noise_multiple']:g} x "
           f"{abs(n[str(P)]['gain']):.2%}) = **{info['threshold']:.2%}**. Largest loss allowed at the other "
@@ -263,6 +290,10 @@ def write_report(path: Path, info: dict, results: list[dict], vs_b3: pd.DataFram
     for r in results:
         if r["failed"]:
             L.append(f"- {r['group']}: " + "; ".join(r["failed"]))
+    hubs = sorted({h for r in results for h in r.get("per_hub", {})})
+    if hubs:
+        L += ["", f"Gain at {P} min per hub (for information):", "",
+              _table(["Group"] + hubs, [[r["group"]] + [_pct(r["per_hub"].get(h, np.nan)) for h in hubs] for r in results])]
     L += ["", "## Result", "", f"**Feature groups: {', '.join(info['final_groups'])}**", ""]
     if info.get("combination"):
         c = info["combination"]
@@ -281,7 +312,8 @@ def write_report(path: Path, info: dict, results: list[dict], vs_b3: pd.DataFram
 # ---------------------------------------------------------------- main
 
 def run(sc: SelectionConfig, cfg: TrainingConfig, features_root: Path, out: Path, publish: Path | None,
-        allow_missing: bool = False, config_text: bytes = b"", log=print) -> dict:
+        allow_missing: bool = False, config_text: bytes = b"", log=print,
+        config_path: str = "config/feature_selection.toml") -> dict:
     rule = sc.rule
     for d in (sc.first_day, sc.last_day):
         if period_of(d, cfg.splits) != "train":
@@ -307,7 +339,7 @@ def run(sc: SelectionConfig, cfg: TrainingConfig, features_root: Path, out: Path
     main_folds = folds_for(days, None, sc.min_train_days)
     if not main_folds:
         raise SystemExit(f"{len(days)} day(s): need more than min_train_days={sc.min_train_days}")
-    log(f"e06: {len(days)} days, {len(rows):,} rows, {len(main_folds)} daily folds, {len(variants)} variants + B3")
+    log(f"{sc.name}: {len(days)} days, {len(rows):,} rows, {len(main_folds)} daily folds, {len(variants)} variants + B3")
 
     preds = {}
     log("B3")
@@ -327,10 +359,12 @@ def run(sc: SelectionConfig, cfg: TrainingConfig, features_root: Path, out: Path
     for t in tests:
         res = compare(rows, preds[t.with_group], preds[t.without], cfg.bootstrap_n, cfg.seed)
         ok, failed = verdict(res, rule, thr, noise)
+        per_hub = per_slice(rows, preds[t.with_group], preds[t.without], "hub", rule.primary_cutoff)
         keep[t.group] = ok
         results.append({"group": t.group, "kind": t.kind, "with": t.with_group, "without": t.without,
                         "start": str(sc.restricted.get(t.group)) if t.kind == "restricted" else None,
-                        "keep": ok, "failed": failed, "result": {str(k): v for k, v in res.items()}})
+                        "keep": ok, "failed": failed, "result": {str(k): v for k, v in res.items()},
+                        "per_hub": per_hub})
 
     # changes on the full window: removed reference groups and added groups
     changes = {f"without {t.group}": t for t in tests if t.kind == "drop" and not keep[t.group]}
@@ -349,7 +383,7 @@ def run(sc: SelectionConfig, cfg: TrainingConfig, features_root: Path, out: Path
         combination = {"combined": combined, "best_single": best, "best_single_ll": single[best]}
         if combined > single[best]:
             groups = list(variants[best].groups)
-            combination["outcome"] = f"The combination is worse, so only the best single change is applied."
+            combination["outcome"] = "The combination is worse, so only the best single change is applied."
         else:
             combination["outcome"] = "The combination is at least as good, so all changes are applied."
     groups += [g for g in sc.restricted if keep[g]]
@@ -376,12 +410,12 @@ def run(sc: SelectionConfig, cfg: TrainingConfig, features_root: Path, out: Path
 
     eval_days = sorted({d for _, e in main_folds for d in e})
     stamp, k = datetime.now().strftime("%Y%m%d-%H%M%S"), 1
-    run_dir = out / f"{stamp}-e06"
+    run_dir = out / f"{stamp}-{sc.name}"
     while run_dir.exists():
         k += 1
-        run_dir = out / f"{stamp}-e06-{k}"
+        run_dir = out / f"{stamp}-{sc.name}-{k}"
     run_dir.mkdir(parents=True)
-    info = {"run_id": run_dir.name, "git_commit": _git_commit(),
+    info = {"run_id": run_dir.name, "name": sc.name, "config_path": config_path, "git_commit": _git_commit(),
             "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "config_sha256": hashlib.sha256(config_text).hexdigest(), "selection": sc.as_dict(),
             "rule": rule.__dict__, "window": [str(sc.first_day), str(sc.last_day)], "days": len(days),
@@ -405,21 +439,26 @@ def run(sc: SelectionConfig, cfg: TrainingConfig, features_root: Path, out: Path
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Second feature exploration (e06): pre-registered group selection")
+    ap = argparse.ArgumentParser(description="Feature selection with a pre-registered rule (e06, e07)")
     ap.add_argument("--config", type=Path, default=ROOT / "config" / "feature_selection.toml")
     ap.add_argument("--training-config", type=Path, default=ROOT / "config" / "training.toml")
     ap.add_argument("--features-config", type=Path, default=ROOT / "config" / "features.toml")
     ap.add_argument("--features", type=Path, default=None, help="default: data/features/v{feature_version}")
     ap.add_argument("--out", type=Path, default=ROOT / "runs")
-    ap.add_argument("--publish", type=Path, default=ROOT / "exploration" / "out" / "e06_feature_selection.md",
-                    help="copy of the report kept in git")
+    ap.add_argument("--publish", type=Path, default=None,
+                    help="copy of the report kept in git (default: [output] report of the config)")
     ap.add_argument("--allow-missing", action="store_true", help="run although days of the window are not built")
     args = ap.parse_args(argv)
     sc = load_selection_config(args.config)
     cfg = load_training_config(args.training_config)
     fcfg = load_feature_config(args.features_config)
     features_root = args.features or ROOT / "data" / "features" / f"v{fcfg.feature_version}"
-    run(sc, cfg, features_root, args.out, args.publish, args.allow_missing, args.config.read_bytes())
+    publish = args.publish or ROOT / sc.report
+    try:
+        shown = args.config.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        shown = str(args.config)
+    run(sc, cfg, features_root, args.out, publish, args.allow_missing, args.config.read_bytes(), config_path=shown)
     return 0
 
 

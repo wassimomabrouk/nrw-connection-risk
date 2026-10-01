@@ -1,8 +1,8 @@
 # Feature pipeline settings (DESIGN.md section 3). The builder always computes every
 # group; `groups` selects what training uses. Bump feature_version when a definition changes.
 
-feature_version = 1
-groups = ["db", "hub", "freshness", "context"]   # draft decision after e05; trend and messages kept for re-testing
+feature_version = 2              # 2: feeder group added (DESIGN.md section 3)
+groups = ["db", "hub", "freshness", "context"]   # draft decision after e05; set by e06, then e07 (feeder)
 
 [hub]
 grid_min = 5                 # hub state is computed on a 5-minute grid, at the last grid point <= cutoff
@@ -13,3 +13,20 @@ late_threshold_min = 5
 [context]
 # NRW public holidays inside the data period, treated like Sundays
 holidays = ["2026-10-03", "2026-11-01", "2026-12-25", "2026-12-26", "2027-01-01", "2027-04-02", "2027-04-05"]
+
+[feeder]
+# Feeder stations (collector role "feeder"), with their names as they appear in planned paths.
+# The feeder group averages the state at the feeders on a train's path before the hub.
+[feeder.stations]
+"8000274" = "Neuss Hbf"
+"8000080" = "Dortmund Hbf"
+"8000178" = "Horrem"
+"8001595" = "Düsseldorf-Unterrath"
+"8079140" = "Köln-Blumenberg"
+"8001469" = "Dinslaken"
+"8000135" = "Troisdorf"
+"8001082" = "Bonn-Bad Godesberg"
+"8003367" = "Köln-Dellbrück"
+"8001592" = "Düsseldorf-Rath"
+"8006718" = "Wuppertal-Vohwinkel"
+"8000105" = "Frankfurt(Main)Hbf"

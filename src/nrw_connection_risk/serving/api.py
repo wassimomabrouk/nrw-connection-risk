@@ -25,6 +25,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from ..dataset.config import DatasetConfig, load_config
+from ..features.config import FeatureConfig
 from ..training.bundle import COMPANION, Bundle, dataset_mismatch, latest_bundle, load_bundle
 from ..monitoring.dashboard import render as render_dashboard
 from .config import ServingConfig, load_serving_config
@@ -59,6 +60,9 @@ class Service:
         self.runs = 0
         self.lock = threading.Lock()
         self.predlog = PredictionLog(scfg.log_dir, bundle.cutoffs, scfg.max_late_min) if bundle else None
+        # hubs, plus the feeder stations only if the model uses the feeder group
+        self.stations = (FeatureConfig.from_dict(bundle.meta["feature_config"]).stations(dcfg.hubs)
+                         if bundle else list(dcfg.hubs))
         if self.predlog:
             try:
                 self.predlog.restore(self.clock())
@@ -72,7 +76,7 @@ class Service:
         now = now if now is not None else self.clock()
         t0 = time.monotonic()
         try:
-            snap = load_live(self.scfg.parsed, self.scfg.raw, now, self.scfg.lookback_h, list(self.dcfg.hubs),
+            snap = load_live(self.scfg.parsed, self.scfg.raw, now, self.scfg.lookback_h, self.stations,
                              self.dcfg.min_parser_version)
             scores = score(snap, self.bundle, self.dcfg, self.scfg.min_minutes_ahead, self.scfg.max_minutes_ahead,
                            self.scfg.max_collector_gap_min)

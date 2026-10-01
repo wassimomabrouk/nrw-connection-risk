@@ -65,6 +65,51 @@ def test_future_data_does_not_change_features(tmp_path):
     assert not known(base).equals(pert[pert.t_cut > t].set_index(ROW).sort_index()[ALL_FEATURES])
 
 
+# a feeder station on A's path (A comes from Aachen): A itself departs 09:40 local, train 5 at 09:50
+AACHEN = "8000001"
+FEEDERS = FeatureConfig(feeders=((AACHEN, "Aachen Hbf"),))
+FEEDER_DATA = [
+    ("plan", AACHEN, utc("2026-09-24 06:00"), """<timetable station="Aachen Hbf">
+        <s id="1-2609240900-2"><tl c="RE" n="1"/><dp pt="2609240940" ppth="Düren|Köln Hbf"/></s>
+        <s id="5-2609240920-1"><tl c="RE" n="5"/><dp pt="2609240950" ppth="Herzogenrath"/></s>
+        </timetable>"""),
+    # 09:30 local: A +2, train 5 +10 at Aachen
+    ("rchg", AACHEN, utc("2026-09-24 07:30"), rchg(
+        '<s id="1-2609240900-2"><dp ct="2609240942"/></s><s id="5-2609240920-1"><dp ct="2609241000"/></s>')),
+]
+
+
+def test_feeder_group_from_stored_data(tmp_path):
+    parsed = write_parsed(tmp_path, scenario() + FEEDER_DATA)
+    df, meta = build_dataset_day(DAY, parsed, CFG)
+    day_dir = write_day(df, meta, tmp_path / "dataset" / "v1")
+    f, _ = build_day(DAY, day_dir, parsed, CFG.hubs, FEEDERS)
+    a = f[f.stop_id_b == "2-2609241025-1"].set_index("cutoff_min").corridor_delay_a
+    # 60 min (grid 07:10 UTC): only A's own departure is within +-30 min, delay not yet known -> 0
+    # 30 and 10 min (grids 07:40, 08:00): A +2 and train 5 +10 -> 6
+    assert a[60] == 0 and a[30] == 6 and a[10] == 6
+    assert f.corridor_delay_b.isna().all()                         # B1 and B2 start at Köln
+    # the dataset itself is unaffected by the feeder data
+    without = build_dataset_day(DAY, write_parsed(tmp_path / "x", scenario()), CFG)[0]
+    pd.testing.assert_frame_equal(df.drop(columns=["collector_age_min"]), without.drop(columns=["collector_age_min"]))
+
+
+def test_future_feeder_data_does_not_change_features(tmp_path):
+    t = pd.Timestamp("2026-09-24 07:45")
+    future = [("rchg", AACHEN, utc("2026-09-24 07:46"), rchg('<s id="5-2609240920-1"><dp ct="2609241030"/></s>'))]
+
+    def feats(root, extra):
+        parsed = write_parsed(root, scenario() + FEEDER_DATA + extra)
+        df, meta = build_dataset_day(DAY, parsed, CFG)
+        return build_day(DAY, write_day(df, meta, root / "dataset" / "v1"), parsed, CFG.hubs, FEEDERS)[0]
+
+    base, pert = feats(tmp_path / "a", []), feats(tmp_path / "b", future)
+    known = lambda df: df[df.t_cut <= t].set_index(ROW).sort_index()[ALL_FEATURES]   # noqa: E731
+    pd.testing.assert_frame_equal(known(base), known(pert))
+    later = lambda df: df[df.t_cut > t].set_index(ROW).sort_index().corridor_delay_a   # noqa: E731
+    assert not later(base).equals(later(pert))                     # train 5's new delay counts at 08:00
+
+
 def test_cli_writes_parquet_and_meta(tmp_path, capsys):
     parsed = write_parsed(tmp_path, scenario())
     df, meta = build_dataset_day(DAY, parsed, CFG)
@@ -76,10 +121,10 @@ def test_cli_writes_parquet_and_meta(tmp_path, capsys):
     assert rc == 0
     out = capsys.readouterr().out
     assert "2026-09-23: no dataset day, skipped" in out and "built 1 day(s)" in out
-    day = tmp_path / "features" / "v1" / "service_day=2026-09-24"
+    day = tmp_path / "features" / "v2" / "service_day=2026-09-24"
     table = pq.read_table(day / "part-0.parquet")
     assert table.num_rows == 6 and str(table.schema.field("t_cut").type) == "timestamp[ns, tz=UTC]"
     m = json.loads((day / "_meta.json").read_text(encoding="utf-8"))
-    assert m["rows"] == 6 and m["features"] == ALL_FEATURES and m["config"]["feature_version"] == 1
+    assert m["rows"] == 6 and m["features"] == ALL_FEATURES and m["config"]["feature_version"] == 2
     assert m["non_missing_pct"]["db_slack_min"] == 100.0
-    assert not list((tmp_path / "features" / "v1").glob(".tmp-*"))
+    assert not list((tmp_path / "features" / "v2").glob(".tmp-*"))

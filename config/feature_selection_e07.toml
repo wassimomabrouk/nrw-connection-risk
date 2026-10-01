@@ -1,0 +1,29 @@
+# e07: is the feeder group worth adding? Same rule and code as e06 (DESIGN.md section 3).
+# Pre-registered: committed with the feeder group's definition, before e07's evaluation days
+# (from 2026-10-07). Expected result, written before the run: a small gain or none.
+# Run from 3 November:  python -m nrw_connection_risk.training.feature_selection --config config/feature_selection_e07.toml
+
+[output]
+name = "e07"
+report = "exploration/out/e07_feeder_selection.md"
+
+[data]
+first_day = "2026-09-30"          # first full day with feeder data
+last_day = "2026-11-01"
+min_train_days = 7                # daily folds: evaluation days 7 October to 1 November (26 days)
+
+[reference]
+from = "config/features.toml"     # the groups e06 decided (set there after the e06 run)
+
+[candidates]
+drop = []
+add = ["feeder"]
+
+[restricted]
+
+[rule]                            # identical to e06
+primary_cutoff = 30
+min_gain = 0.005
+noise_multiple = 2.0
+min_day_share = 0.6
+max_loss_other = 0.002

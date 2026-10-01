@@ -46,6 +46,9 @@ def make_day(day: date, n: int, rng: np.random.Generator, hub_effect: float = 1.
         "trend_a_15": rng.normal(0, 1, n), "trend_a_30": rng.normal(0, 1, n), "trend_b_15": rng.normal(0, 1, n),
         "n_delay_codes_a": rng.integers(0, 3, n), "n_quality_a": 0, "n_delay_codes_b": 0,
         "h_notice_a": 0, "h_notice_b": 0, "c_notice_a": 0,
+        "corridor_delay_a": np.where(rng.random(n) < 0.5, np.nan, rng.gamma(2, 2, n)),     # noise: not in the truth
+        "corridor_line_delay_a": np.where(rng.random(n) < 0.6, np.nan, rng.gamma(2, 2, n)),
+        "corridor_delay_b": np.where(rng.random(n) < 0.6, np.nan, rng.gamma(2, 2, n)),
     })
     assert set(ALL_FEATURES) <= set(df.columns)
     return df

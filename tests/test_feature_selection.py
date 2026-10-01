@@ -34,6 +34,22 @@ def test_repo_config_is_the_pre_registered_design():
     assert sc.rule == Rule(30, 0.005, 2.0, 0.6, 0.002)
 
 
+def test_e07_config_tests_the_feeder_group_on_top_of_the_e06_result(tmp_path):
+    sc = load_selection_config(ROOT / "config" / "feature_selection_e07.toml")
+    e06 = load_selection_config(ROOT / "config" / "feature_selection.toml")
+    assert (sc.first_day, sc.last_day, sc.min_train_days) == (D("2026-09-30"), D("2026-11-01"), 7)
+    assert sc.add == ("feeder",) and sc.drop == () and sc.rule == e06.rule
+    assert sc.reference_from == "config/features.toml" and sc.name == "e07"
+    assert sc.report == "exploration/out/e07_feeder_selection.md" and e06.name == "e06"
+    # the reference follows whatever e06 wrote into features.toml
+    (tmp_path / "config").mkdir()
+    text = (ROOT / "config" / "features.toml").read_text(encoding="utf-8")
+    (tmp_path / "config" / "features.toml").write_text(
+        text.replace('groups = ["db", "hub", "freshness", "context"]', 'groups = ["db", "hub", "trend"]'), encoding="utf-8")
+    assert load_selection_config(ROOT / "config" / "feature_selection_e07.toml", root=tmp_path).reference == \
+        ("db", "hub", "trend")
+
+
 def test_threshold_is_the_larger_of_minimum_and_noise():
     assert threshold(RULE, {30: {"gain": 0.001}}) == 0.005
     assert threshold(RULE, {30: {"gain": -0.004}}) == pytest.approx(0.008)
@@ -131,3 +147,5 @@ def test_end_to_end_finds_the_known_truth(tmp_path):
     text = pub.read_text(encoding="utf-8")
     assert text == (run_dir / "report.md").read_text(encoding="utf-8")
     assert "**Feature groups: db, hub**" in text and "Noise floor" in text and "against B3" in text
+    assert "per hub" in text and set(next(t for t in info["tests"] if t["group"] == "hub")["per_hub"]) == \
+        {"Köln Hbf", "Düsseldorf Hbf", "Essen Hbf"}

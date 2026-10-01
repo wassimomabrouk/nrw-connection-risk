@@ -7,6 +7,7 @@ GROUPS: dict[str, list[str]] = {
                 "same_platform", "segment_a", "segment_b", "hub"],
     "trend": ["trend_a_15", "trend_a_30", "trend_b_15"],
     "messages": ["n_delay_codes_a", "n_quality_a", "n_delay_codes_b", "h_notice_a", "h_notice_b", "c_notice_a"],
+    "feeder": ["corridor_delay_a", "corridor_line_delay_a", "corridor_delay_b"],
 }
 CATEGORICAL = {"segment_a", "segment_b", "hub", "day_type"}
 

@@ -5,7 +5,7 @@ Features for every eligible row of the dataset (one transfer candidate at one cu
 ## Lineage
 
 ```
-parsed layer (hub stations only) ──┐
+parsed layer (hubs and feeders) ───┐
                                    ├──> features.build ──> data/features/v{feature_version}/service_day=YYYY-MM-DD/
 dataset day (eligible rows) ───────┘                        part-0.parquet, _meta.json
 ```
@@ -41,8 +41,11 @@ Carried along, never model inputs: `service_day, cutoff_min, t_cut (UTC), eva, s
 | trend | `trend_a_15`, `trend_a_30`, `trend_b_15` | change of DB's predicted delay over the last 15 / 30 minutes | never |
 | messages | `n_delay_codes_a`, `n_quality_a`, `n_delay_codes_b` | distinct delay-cause / quality codes seen on A's arrival / B's departure | never (0) |
 | | `h_notice_a`, `h_notice_b`, `c_notice_a` | disruption (`h`) or connection (`c`) notice seen on the stop (0/1) | never (0) |
+| feeder | `corridor_delay_a` | mean predicted delay of non-cancelled trains planned within ±30 min at each feeder station on A's planned path before the hub, averaged over those feeders | A passes no feeder, or A's arrival was not yet in the timetable at the cutoff |
+| | `corridor_line_delay_a` | mean delay of arrivals of A's line in the last 60 min at those feeders, averaged | no such arrival |
+| | `corridor_delay_b` | as `corridor_delay_a`, for B's path into the hub | B starts at the hub or passes no feeder |
 
-Categorical: `segment_a, segment_b, hub, day_type`. Hub state is computed on a 5-minute grid and joined at the last grid point at or before the cutoff, so it is up to 5 minutes older than the cutoff.
+Categorical: `segment_a, segment_b, hub, day_type`. Hub state is computed on a 5-minute grid and joined at the last grid point at or before the cutoff, so it is up to 5 minutes older than the cutoff. The feeder group applies the same hub-state code to the 12 feeder stations (`[feeder.stations]` in `config/features.toml`, names as they appear in planned paths), so it follows the same point-in-time rules; a train's path is used only if its arrival at the hub was already in the timetable at the cutoff. Feature version 2 added the feeder group (`data/features/v2`); whether models use it is decided by e07 (DESIGN.md section 3).
 
 ## Leakage guarantees
 
@@ -58,4 +61,5 @@ Categorical: `segment_a, segment_b, hub, day_type`. Hub state is computed on a 5
 - The hub state takes planned times from the latest plan version. This is point-in-time safe only if planned times never change after first publication. The build checks this and reports `plan_changes` in `_meta.json` (with a warning if not 0).
 - Connection notices (`c`) appear only after the event in practice (e05); the column exists for re-testing but is not expected to help.
 - Missing values are left as NaN. Gradient boosting uses them directly; linear models need imputation plus indicator columns (training pipeline).
-- Feeder stations are not used yet (see DESIGN.md section 3).
+- The feeder group takes paths and planned times from the latest timetable version, like the hub state (`plan_changes` in `_meta.json` counts hub and feeder events whose planned time changed).
+- A's own train is among the trains averaged at a feeder; its own upstream delay adds nothing beyond DB's prognosis (e07a), and it is one of about 9 trains per feeder and half hour.

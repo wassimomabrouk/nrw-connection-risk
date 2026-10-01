@@ -10,13 +10,14 @@ import pytest
 
 from nrw_connection_risk.dataset.state import state_at
 from nrw_connection_risk.features.columns import ALL_FEATURES, GROUPS, feature_columns
-from nrw_connection_risk.features.compute import (compute_all, context, freshness, hub, hub_state,
+from nrw_connection_risk.features.compute import (compute_all, context, feeder, freshness, hub, hub_state,
                                                   messages, trend)
 from nrw_connection_risk.features.config import FeatureConfig, load_feature_config
 from nrw_connection_risk.features.load import first_seen_messages
 
 T = pd.Timestamp
-CFG = FeatureConfig()
+NEUSS, DORTMUND = "8000274", "8000080"
+CFG = FeatureConfig(feeders=((NEUSS, "Neuss Hbf"), (DORTMUND, "Dortmund Hbf")))
 KOELN = "8000207"
 
 
@@ -155,6 +156,73 @@ def test_hub_joins_on_the_last_grid_point_before_the_cutoff():
     assert out.line_recent_delay_a[0] == 4 and np.isnan(out.line_recent_delay_a[1])
 
 
+def feeder_example():
+    """Hub arrivals A (via Neuss and Dortmund) and B (via Dortmund), departure B at the hub,
+    and traffic at the two feeders."""
+    hub_plan = plan_frame([
+        ("A", "ar", "2026-09-24 08:40", "RE1", "2026-09-24 04:00"),
+        ("Bh", "ar", "2026-09-24 08:48", "RE5", "2026-09-24 04:00"),
+        ("Bh", "dp", "2026-09-24 08:50", "RE5", "2026-09-24 04:00"),
+        ("C", "ar", "2026-09-24 08:45", "S11", "2026-09-24 04:00"),
+    ])
+    hub_plan["path"] = ["Dortmund Hbf|Neuss Hbf|Köln-Ehrenfeld", "Dortmund Hbf|Essen Hbf", None, "Köln-Mülheim"]
+    fed = plan_frame([
+        ("n1", "dp", "2026-09-24 08:10", "RE1", "2026-09-24 04:00"),    # Neuss: +4
+        ("n2", "dp", "2026-09-24 08:20", "S8", "2026-09-24 04:00"),     # Neuss: cancelled
+        ("n3", "ar", "2026-09-24 07:40", "RE1", "2026-09-24 04:00"),    # Neuss: RE1 arrived +2
+        ("n4", "dp", "2026-09-24 08:15", "RE6", "2026-09-24 08:03"),    # Neuss: timetable known only at 08:03
+        ("d1", "dp", "2026-09-24 08:05", "ICE", "2026-09-24 04:00"),    # Dortmund: +10, known only at 08:02
+        ("d2", "ar", "2026-09-24 07:50", "RE1", "2026-09-24 04:00"),    # Dortmund: RE1 arrived +6
+    ])
+    fed["eva"] = [NEUSS] * 4 + [DORTMUND] * 2
+    fed["path"] = None
+    obs = obs_frame([
+        ("n1|dp", "2026-09-24 07:55", "2026-09-24 08:14", None),
+        ("n2|dp", "2026-09-24 07:56", None, "c"),
+        ("n3|ar", "2026-09-24 07:45", "2026-09-24 07:42", None),
+        ("d1|dp", "2026-09-24 08:02", "2026-09-24 08:15", None),
+        ("d2|ar", "2026-09-24 07:57", "2026-09-24 07:56", None),
+    ])
+    return pd.concat([hub_plan, fed], ignore_index=True), obs
+
+
+def test_feeder_corridor_state_on_the_path_before_the_hub():
+    plan, obs = feeder_example()
+    rows = pd.DataFrame({"eva": [KOELN] * 3, "stop_id_a": ["A", "A", "C"], "stop_id_b": ["Bh", "Bh", "Bh"],
+                         "line_a": ["RE1", "RE1", "S11"],
+                         "t_cut": [T("2026-09-24 08:04"), T("2026-09-24 08:10"), T("2026-09-24 08:04")]})
+    out = feeder(rows, plan, obs, CFG)
+    # grid 08:00: Neuss has n1 (+4), n3 (+2), n2 cancelled (excluded), n4 not yet published -> mean 3;
+    # Dortmund has d1 at 0 (its +10 is seen at 08:02) and d2 (+6) -> mean 3. A passes both: 3.
+    assert out.corridor_delay_a[0] == pytest.approx(3.0)
+    # A's line RE1 arrivals in the last 60 min: Neuss n3 +2, Dortmund d2 +6 -> mean over feeders 4
+    assert out.corridor_line_delay_a[0] == pytest.approx(4.0)
+    # B comes in via Dortmund only
+    assert out.corridor_delay_b[0] == pytest.approx(3.0)
+    # grid 08:10: d1's +10 is known now (Dortmund 8), n4 counts at Neuss with 0 -> Neuss (4+2+0)/3 = 2
+    assert out.corridor_delay_a[1] == pytest.approx((2.0 + 8.0) / 2)
+    assert out.corridor_delay_b[1] == pytest.approx(8.0)
+    # C passes no feeder
+    assert np.isnan(out.corridor_delay_a[2]) and np.isnan(out.corridor_line_delay_a[2])
+
+
+def test_feeder_group_is_missing_without_feeder_stations():
+    plan, obs = feeder_example()
+    rows = pd.DataFrame({"eva": [KOELN], "stop_id_a": ["A"], "stop_id_b": ["Bh"], "line_a": ["RE1"],
+                         "t_cut": [T("2026-09-24 08:04")]})
+    assert feeder(rows, plan, obs, FeatureConfig()).isna().all().all()          # model cards before version 2
+    assert feeder(rows, plan[plan.eva == KOELN], obs, CFG).isna().all().all()   # feeder data not loaded
+
+
+def test_feeder_stations_are_read_only_for_models_that_use_them():
+    assert CFG.stations([KOELN]) == [KOELN]
+    used = FeatureConfig(groups=("db", "feeder"), feeders=CFG.feeders)
+    assert used.stations([KOELN]) == [KOELN, DORTMUND, NEUSS]
+    assert FeatureConfig.from_dict(used.as_dict()) == used
+    old = {k: v for k, v in FeatureConfig().as_dict().items() if k != "feeders"}   # a version-1 model card
+    assert FeatureConfig.from_dict(old).feeders == ()
+
+
 def test_context_day_type_and_local_hour():
     cfg = FeatureConfig(holidays=frozenset({date(2026, 10, 3)}))
     rows = pd.DataFrame({
@@ -187,9 +255,21 @@ def random_world(seed: int, n_trains: int = 80):
     plan["eva"] = np.tile(evas, 2)
     plan["line"] = np.tile(rng.choice(["RE1", "RE5", "S11", "ICE"], n_trains), 2)
     plan["first_seen"] = plan.pt - minute(rng.integers(5, 300, len(plan)))
+    # planned paths into the hub; some pass the feeder stations
+    paths = rng.choice(["Neuss Hbf|Köln-Ehrenfeld", "Dortmund Hbf|Neuss Hbf", "Dortmund Hbf|Essen Hbf",
+                        "Aachen Hbf|Düren", None], n_trains)
+    plan["path"] = np.concatenate([paths, [None] * n_trains])
+    # traffic at the two feeder stations
+    n_f = 160
+    fpt = base + minute(rng.integers(-60, 600, n_f))
+    fplan = pd.DataFrame({"stop_id": [f"f{i}" for i in range(n_f)], "event": rng.choice(["ar", "dp"], n_f),
+                          "pt": fpt, "eva": rng.choice([NEUSS, DORTMUND], n_f),
+                          "line": rng.choice(["RE1", "RE5", "S11", "ICE"], n_f), "path": None})
+    fplan["first_seen"] = fplan.pt - minute(rng.integers(5, 300, n_f))
+    plan = pd.concat([plan, fplan], ignore_index=True)
     plan["pt"], plan["first_seen"] = plan.pt.astype("datetime64[ns]"), plan.first_seen.astype("datetime64[ns]")
 
-    n_obs = 600
+    n_obs = 800
     ev = plan.sample(n_obs, replace=True, random_state=seed).reset_index(drop=True)
     obs = pd.DataFrame({"key": ev.stop_id + "|" + ev.event, "eva": ev.eva,
                         "obs": ev.pt - minute(rng.integers(-40, 200, n_obs)),
@@ -209,8 +289,9 @@ def random_world(seed: int, n_trains: int = 80):
     stop_msgs = stop_msgs.groupby(["stop_id", "type"], as_index=False).obs.min()
 
     # query rows: arrival of train i, departure of train j at the same hub, cutoffs 60/30/10
-    a = plan[plan.event == "ar"].reset_index(drop=True)
-    d = plan[plan.event == "dp"].reset_index(drop=True)
+    hubs = plan[plan.eva.isin([KOELN, "8000085"])]
+    a = hubs[hubs.event == "ar"].reset_index(drop=True)
+    d = hubs[hubs.event == "dp"].reset_index(drop=True)
     pairs = [(i, j) for i in range(len(a)) for j in range(len(d))
              if a.eva[i] == d.eva[j] and 4 <= (d.pt[j] - a.pt[i]).total_seconds() / 60 <= 30]
     ai, dj = map(list, zip(*pairs))
@@ -276,6 +357,11 @@ def test_no_feature_changes_when_the_future_changes(seed):
     changed = (before[~known].fillna(-999) != after[~known].fillna(-999)).any(axis=1)
     assert changed.mean() > 0.3
     assert set(before.columns) == set(ALL_FEATURES)
+    # the feeder group is exercised too: populated, and changed by the future after T
+    for c in GROUPS["feeder"]:
+        assert before[c].notna().mean() > 0.15
+    f = GROUPS["feeder"]
+    assert (before.loc[~known, f].fillna(-999) != after.loc[~known, f].fillna(-999)).any(axis=1).mean() > 0.05
 
 
 def truncate_at(t, plan, obs, event_msgs, stop_msgs):
@@ -293,6 +379,7 @@ def test_features_equal_when_data_ends_exactly_at_the_cutoff():
     obs = obs.assign(obs=obs.obs + pd.to_timedelta(np.random.default_rng(4).integers(0, 60, len(obs)), unit="s"))
     obs = obs.sort_values("obs", kind="stable").reset_index(drop=True)
     full = compute_all(dataset_columns(rows, obs), plan, obs, event_msgs, stop_msgs, CFG)
+    assert full[GROUPS["feeder"]].notna().mean().min() > 0.15     # the feeder group is exercised
     groups = list(rows.groupby("t_cut").groups.items())
     picked = np.random.default_rng(0).choice(len(groups), 40, replace=False)
     for t, idx in (groups[i] for i in picked):

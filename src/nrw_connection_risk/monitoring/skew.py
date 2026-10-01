@@ -46,7 +46,7 @@ def recompute(logged: pd.DataFrame, dataset: pd.DataFrame, day, parsed: Path, dc
     t0, _ = service_day_bounds(day, dcfg.start_hour_local)
     t_from, t_to = t0 - pd.Timedelta(days=1), rows.t_cut.max()
     hubs = list(dcfg.hubs)
-    w = load_window(parsed, t_from, t_to, dcfg.min_parser_version, stations=hubs)
+    w = load_window(parsed, t_from, t_to, dcfg.min_parser_version, stations=fcfg.stations(hubs))
     ev, st = load_messages(parsed, t_from, t_to, hubs)
     sa = state_at(rows.stop_id_a + "|ar", rows.t_cut, w.obs)
     sb = state_at(rows.stop_id_b + "|dp", rows.t_cut, w.obs)

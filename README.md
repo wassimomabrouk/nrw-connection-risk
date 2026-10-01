@@ -82,6 +82,7 @@ config/dataset.toml              candidate rules, cutoffs and data-quality thres
 config/features.toml             feature groups in use, hub-state settings, holidays
 config/training.toml             splits, models, calibration, evaluation settings
 config/feature_selection.toml    pre-registered rule and window of the feature selection (e06)
+config/feature_selection_e07.toml  the same rule for the feeder group (e07)
 config/serving.toml              live service: data paths, scoring interval, prediction log
 config/monitoring.toml           daily evaluation of the live predictions, drift thresholds
 src/nrw_connection_risk/
@@ -97,7 +98,7 @@ deploy/                          systemd units for the collector, the daily back
 Dockerfile, compose.yml          container for the API
 .github/workflows/ci.yml         tests on Python 3.11 and 3.14, image build and smoke test
 docs/                            operations runbook, dataset card, feature card, training and evaluation, serving, monitoring
-exploration/                     exploration scripts e01 to e05 and their reports (e06 reports are written here too)
+exploration/                     explorations e01 to e07 and their reports (overview: exploration/README.md)
 section0/                        feasibility scripts on the historical dataset
 ```
 
@@ -138,7 +139,7 @@ One Parquet table per service day: every transfer candidate at the five hubs, DB
 python -m nrw_connection_risk.features.build --from 2026-09-24 --to 2026-09-30
 ```
 
-Six feature groups (DB prognosis, hub state, freshness, context, trend, messages) for every eligible row. The functions are pure and will also serve live predictions; tests rewrite all data after a point in time and check that no earlier feature changes. Details: [docs/FEATURES.md](docs/FEATURES.md).
+Seven feature groups (DB prognosis, hub state, freshness, context, trend, messages, feeder corridor) for every eligible row. The functions are pure and will also serve live predictions; tests rewrite all data after a point in time and check that no earlier feature changes. Details: [docs/FEATURES.md](docs/FEATURES.md).
 
 ## Training and evaluation
 

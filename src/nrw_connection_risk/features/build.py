@@ -39,9 +39,9 @@ def build_day(day: date, dataset_day: Path, parsed_root: Path, hubs: dict[str, s
     # anyway, so this is a second, structural guard against leakage.
     t_from = t0 - pd.Timedelta(days=1)
     t_to = rows.t_cut.max() if len(rows) else t1
-    stations = list(hubs)
+    stations = list(hubs) + [e for e, _ in cfg.feeders]      # the table holds every group, feeder included
     w = load_window(parsed_root, t_from, t_to, min_parser_version, stations=stations)
-    ev_msgs, st_msgs = load_messages(parsed_root, t_from, t_to, stations)
+    ev_msgs, st_msgs = load_messages(parsed_root, t_from, t_to, list(hubs))
     feats = compute_all(rows, w.plan, w.obs, ev_msgs, st_msgs, cfg)
     keys = rows[[c for c in KEYS + TARGET if c not in feats.columns]]
     df = pd.concat([keys, feats[ALL_FEATURES]], axis=1)
@@ -84,8 +84,8 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{day}: {len(df):,} rows, {len(ALL_FEATURES)} features -> {target}"
                   + (f"  (mostly missing: {low})" if low else ""))
             if facts["plan_changes"]:
-                print(f"  WARNING: {facts['plan_changes']} hub events changed their planned time "
-                      f"between plan versions; hub features assume planned times never change")
+                print(f"  WARNING: {facts['plan_changes']} hub or feeder events changed their planned time "
+                      f"between plan versions; hub and feeder features assume planned times never change")
         day += timedelta(days=1)
     print(f"built {built} day(s)")
     return 0
