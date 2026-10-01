@@ -88,8 +88,19 @@ def _legend(items) -> str:
 
 # ---------------------------------------------------------------- charts
 
+def _tick_decimals(ticks: list[float]) -> int:
+    """Fewest decimals that keep neighbouring tick labels distinct (0.462 / 0.464, not 0.46 / 0.46)."""
+    if len(ticks) < 2:
+        return 2
+    step = ticks[1] - ticks[0]
+    for d in range(0, 7):
+        if abs(round(step, d) - step) < step * 1e-6:
+            return d
+    return 6
+
+
 def line_chart(days: list[str], series: list[tuple[str, str, list]], fmt=lambda v: f"{v:.4f}",
-               axis_fmt=lambda v: f"{v:.2f}") -> str:
+               axis_fmt=None) -> str:
     """Values per day, one line per series (None = gap), with hover titles."""
     W, H, L, R, T, B = 940, 260, 48, 70, 12, 28
     vals = [v for _, _, ys in series for v in ys if v is not None]
@@ -99,6 +110,9 @@ def line_chart(days: list[str], series: list[tuple[str, str, list]], fmt=lambda 
     pad = (hi - lo) * 0.15 or abs(hi) * 0.1 or 0.1
     ticks = _ticks(lo - pad, hi + pad)
     y0, y1 = ticks[0], ticks[-1]
+    if axis_fmt is None:
+        dec = _tick_decimals(ticks)
+        axis_fmt = lambda v: f"{v:.{dec}f}"   # noqa: E731
     xs = lambda i: L + (W - L - R) * (i / max(len(days) - 1, 1) if len(days) > 1 else 0.5)   # noqa: E731
     ys = lambda v: T + (H - T - B) * (1 - (v - y0) / (y1 - y0))   # noqa: E731
     out = [f'<svg class="wide" viewBox="0 0 {W} {H}" role="img">']

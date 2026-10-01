@@ -210,3 +210,14 @@ def test_api_serves_dashboard_and_summary(tmp_path, monitored):
     (tmp_path / "mon").mkdir()
     (tmp_path / "mon" / "summary.json").write_text(json.dumps({"days": 0, "per_day": [], "pooled": {}}))
     assert client.get("/v1/monitoring").json()["days"] == 0
+
+
+def test_line_chart_axis_labels_stay_distinct_for_close_values():
+    import re
+    from nrw_connection_risk.monitoring.dashboard import line_chart
+    svg = line_chart(["2026-09-30"], [("model", "red", [0.4688]), ("B3", "blue", [0.4620])])
+    labels = re.findall(r'text-anchor="end">([^<]+)<', svg)
+    assert len(labels) >= 3 and len(set(labels)) == len(labels)
+    assert all(len(x.split(".")[1]) >= 3 for x in labels)
+    wide = re.findall(r'text-anchor="end">([^<]+)<', line_chart(["a", "b"], [("m", "red", [0.3, 0.6])]))
+    assert len(set(wide)) == len(wide) and all(len(x.split(".")[1]) <= 2 for x in wide)
