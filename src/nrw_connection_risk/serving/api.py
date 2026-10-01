@@ -10,6 +10,7 @@ Environment: NRW_ROOT (repo root, default: current directory), NRW_SERVING_CONFI
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import threading
@@ -20,10 +21,12 @@ from typing import Literal
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from ..dataset.config import DatasetConfig, load_config
 from ..training.bundle import COMPANION, Bundle, dataset_mismatch, latest_bundle, load_bundle
+from ..monitoring.dashboard import render as render_dashboard
 from .config import ServingConfig, load_serving_config
 from .live import load_live
 from .predlog import PredictionLog
@@ -245,7 +248,27 @@ def create_app(service: Service, start_scorer: bool = True) -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     def root():
-        return {"service": "nrw-connection-risk", "docs": "/docs", "health": "/health"}
+        return {"service": "nrw-connection-risk", "docs": "/docs", "health": "/health", "dashboard": "/dashboard"}
+
+    def monitoring_summary() -> dict | None:
+        path = service.scfg.monitoring_dir / "summary.json"
+        try:
+            return json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+        except (OSError, ValueError):
+            return None
+
+    @app.get("/v1/monitoring")
+    def monitoring():
+        """Summary of the daily live evaluation (written by the monitoring job)."""
+        s = monitoring_summary()
+        if s is None:
+            raise HTTPException(404, "no monitoring summary yet")
+        return s
+
+    @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
+    def dashboard():
+        model = service.bundle.meta if service.bundle else None
+        return render_dashboard(monitoring_summary(), service.health(), model)
 
     @app.get("/health", response_model=Health, responses={503: {"description": "the service is failing"}})
     def health(response: Response):

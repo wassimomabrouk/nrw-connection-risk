@@ -41,6 +41,8 @@ Interactive documentation: `/docs`.
 | `GET /v1/connections/lookup?stop_id_a=…&stop_id_b=…` | one connection |
 | `GET /v1/hubs` | hubs and how many connections are scored at each |
 | `GET /v1/model` | model card of the loaded bundle |
+| `GET /v1/monitoring` | summary of the daily live evaluation ([MONITORING.md](MONITORING.md)) |
+| `GET /dashboard` | monitoring dashboard (HTML) |
 
 Example connection:
 
@@ -77,7 +79,7 @@ docker compose up -d --build              # set SKLEARN_VERSION=... first if you
 curl -s localhost:8000/health
 ```
 
-The port is bound to localhost on the server. From your PC: `ssh -i KEY -L 8000:localhost:8000 ubuntu@HOST`, then open http://localhost:8000/docs.
+The port is bound to localhost on the server. From your PC: `ssh -i KEY -L 8000:localhost:8000 ubuntu@HOST`, then open http://localhost:8000/docs or http://localhost:8000/dashboard.
 
 ## Known limitations
 

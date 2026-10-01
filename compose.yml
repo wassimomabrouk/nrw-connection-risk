@@ -19,5 +19,6 @@ services:
       - ./data/collector:/app/data/collector:ro   # the collector's raw and parsed layers
       - ./models:/app/models:ro                   # model bundles (training.fit_bundle)
       - ./data/serving:/app/data/serving          # prediction log for monitoring
+      - ./data/monitoring:/app/data/monitoring:ro # daily monitoring reports, shown at /dashboard
     mem_limit: 2g
     stop_grace_period: 45s                        # time to finish a run and flush the prediction log

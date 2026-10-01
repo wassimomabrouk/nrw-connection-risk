@@ -32,6 +32,7 @@ from ..dataset.load import ParsedLayerError
 from ..dataset.timeutil import service_day_bounds, to_naive_utc
 from ..training.metrics import precision_recall_at, recall_at_precision, reliability, scores
 from .profile import drift, level
+from .skew import skew_check
 
 ROOT = Path(__file__).resolve().parents[3]
 KEY = ["stop_id_a", "stop_id_b", "cutoff_min"]
@@ -89,9 +90,9 @@ def load_predictions(root: Path, day: date, start_hour: int = 4) -> pd.DataFrame
     return df.reset_index(drop=True)
 
 
-def outcomes(day: date, parsed: Path, dcfg: DatasetConfig) -> pd.DataFrame:
+def outcomes(day: date, parsed: Path, dcfg: DatasetConfig, dataset: pd.DataFrame | None = None) -> pd.DataFrame:
     """Labels and exclusions exactly as in the training table (dataset builder)."""
-    df, _ = build_dataset_day(day, parsed, dcfg)
+    df = dataset if dataset is not None else build_dataset_day(day, parsed, dcfg)[0]
     df = df[KEY + ["label_fail", "fail_reason", "eligible", "exclusion_reason"]].copy()
     df["cutoff_min"] = df.cutoff_min.astype(int)
     return df
@@ -181,16 +182,21 @@ def evaluate_day(day: date, cfg: MonitoringConfig, dcfg: DatasetConfig) -> dict:
     if pred.empty:
         return {**report, "status": "no_predictions"}
     try:
-        out = outcomes(day, cfg.parsed, dcfg)
+        dataset = build_dataset_day(day, cfg.parsed, dcfg)[0]
     except (IncompleteDay, ParsedLayerError) as e:
         return {**report, "status": "no_outcomes", "reason": f"{type(e).__name__}: {e}"}
+    out = outcomes(day, cfg.parsed, dcfg, dataset)
     j = join(pred, out)
     (cfg.out / "joined").mkdir(parents=True, exist_ok=True)
     j.to_parquet(cfg.out / "joined" / f"service_day={day}.parquet", index=False)
     ev = j[j.outcome.eq("evaluated")]
+    try:
+        skew = skew_check(j, dataset, day, cfg.parsed, dcfg, cfg.models)
+    except Exception as e:                    # the skew check must never block the daily report
+        skew = {"error": f"{type(e).__name__}: {e}"}
     return {**report, "status": "ok", "model_ids": sorted(j.model_id.astype(str).unique()),
             "performance": performance(ev, cfg.calibration_bins, cfg.primary_cutoff),
-            "operations": operations(j, out), "drift": feature_drift(j, cfg.models, cfg)}
+            "operations": operations(j, out), "drift": feature_drift(j, cfg.models, cfg), "skew": skew}
 
 
 def finished_days(cfg: MonitoringConfig, dcfg: DatasetConfig, now: datetime) -> list[date]:
@@ -221,10 +227,12 @@ def main(argv: list[str] | None = None) -> int:
     daily.mkdir(parents=True, exist_ok=True)
     days = [args.day] if args.day else finished_days(cfg, dcfg, datetime.now(timezone.utc))
     todo = [d for d in days if args.redo or args.day or not (daily / f"service_day={d}.json").exists()]
+    written = 0
     for d in todo:
         rep = evaluate_day(d, cfg, dcfg)
-        if rep["status"] == "no_predictions":
+        if rep["status"] == "no_predictions":        # e.g. days before the API ran: no report
             continue
+        written += 1
         (daily / f"service_day={d}.json").write_text(json.dumps(rep, indent=2), encoding="utf-8")
         line = f"{d}: {rep['status']}"
         if rep["status"] == "ok":
@@ -237,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
         print(line)
     from .summary import write_summary
     s = write_summary(cfg)
-    print(f"evaluated {len(todo)} day(s); summary over {s['days']} day(s): {cfg.out / 'summary.md'}")
+    print(f"{written} new report(s); summary over {s['days']} evaluated day(s): {cfg.out / 'summary.md'}")
     return 0
 
 

@@ -160,3 +160,53 @@ min_rows = 1
     assert main(["--config", str(toml), "--dataset-config", str(ds)]) == 0
     assert (tmp_path / "out" / "daily" / f"service_day={DAY}.json").exists()
     assert (tmp_path / "out" / "summary.md").exists()
+
+
+# ---------------------------------------------------------------- skew, dashboard, API routes
+
+def test_skew_check_finds_live_equal_to_offline(monitored):
+    _, _, rep = monitored
+    s = next(iter(rep["skew"].values()))
+    assert s["available"] and s["rows"] == 6 and s["identical_share"] == 1.0 and s["least_equal"] == []
+
+
+def test_skew_check_catches_a_difference(monitored):
+    from nrw_connection_risk.monitoring.skew import compare
+    cfg, _, _ = monitored
+    live = pd.read_parquet(cfg.out / "joined" / f"service_day={DAY}.parquet")
+    offline = live.copy()
+    offline.loc[0, "db_slack_min"] += 3
+    offline.loc[1, "hub"] = "Essen Hbf"
+    r = compare(live, offline, ["db_slack_min", "hub", "age_a_min"])
+    assert r["identical_share"] == pytest.approx(4 / 6, abs=1e-4)
+    assert r["per_feature"]["db_slack_min"]["mean_abs_diff_where_different"] == 3.0
+    assert set(r["least_equal"]) == {"db_slack_min", "hub"}
+
+
+def test_dashboard_renders_with_and_without_data(monitored):
+    from nrw_connection_risk.monitoring.dashboard import render
+    cfg, bundle, rep = monitored
+    empty = render(None, {"status": "starting", "data_age_s": None, "model_id": "m"}, None)
+    assert "No evaluated day yet" in empty and "<svg" not in empty
+    (cfg.out / "daily").mkdir(parents=True, exist_ok=True)
+    (cfg.out / "daily" / f"service_day={DAY}.json").write_text(json.dumps(rep))
+    page = render(write_summary(cfg), {"status": "ok", "data_age_s": 40, "model_id": bundle.model_id}, bundle.meta)
+    for text in ("Log loss per day", "Calibration", "Input drift", "Per day (30 min)", "All days pooled",
+                 "Live = offline features", "100.0%"):
+        assert text in page
+    assert page.count("<svg") == 2 and "<script" not in page
+
+
+def test_api_serves_dashboard_and_summary(tmp_path, monitored):
+    from fastapi.testclient import TestClient
+    from nrw_connection_risk.serving.api import create_app
+    cfg, bundle, _ = monitored
+    svc = Service(ServingConfig(parsed=cfg.parsed, raw=tmp_path / "raw", log_dir=tmp_path / "log",
+                                monitoring_dir=tmp_path / "mon"), CFG, bundle, clock=lambda: T("2026-09-24 07:42"))
+    client = TestClient(create_app(svc, start_scorer=False))
+    assert client.get("/v1/monitoring").status_code == 404
+    r = client.get("/dashboard")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/html") and "No evaluated day" in r.text
+    (tmp_path / "mon").mkdir()
+    (tmp_path / "mon" / "summary.json").write_text(json.dumps({"days": 0, "per_day": [], "pooled": {}}))
+    assert client.get("/v1/monitoring").json()["days"] == 0

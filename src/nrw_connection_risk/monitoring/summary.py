@@ -45,11 +45,15 @@ def write_summary(cfg) -> dict:
             ops = r["operations"]
             drifts = [d for d in r["drift"].values() if d.get("available")]
             worst = max(((k, v) for d in drifts for k, v in d["psi"].items()), key=lambda kv: kv[1], default=(None, None))
+            skews = [d for d in r.get("skew", {}).values() if isinstance(d, dict) and d.get("available") and d.get("rows")]
+            skew_rows = sum(d["rows"] for d in skews)
+            skew_same = sum(d["rows"] * d["identical_share"] for d in skews) / skew_rows if skew_rows else None
             row.update(logged=ops["logged"], rows=p.get("rows"), fail_rate=p.get("fail_rate"),
                        log_loss_model=p.get("model", {}).get("log_loss"), log_loss_B3=p.get("B3", {}).get("log_loss"),
                        gain_vs_B3=p.get("log_loss_gain_vs_B3"), auc_model=p.get("model", {}).get("auc"),
                        auc_B3=p.get("B3", {}).get("auc"), coverage=ops["coverage"].get(L),
                        data_age_p95_s=ops["data_age_s"]["p95"], max_psi_feature=worst[0], max_psi=worst[1],
+                       skew_identical=_r(skew_same),
                        model_ids=r["model_ids"])
         else:
             row["reason"] = r.get("reason")
@@ -97,15 +101,17 @@ def _markdown(s: dict, cfg) -> str:
             out += ["", "> Fewer than 10 days: intervals from resampling days are not reliable yet."]
         out.append("")
     out += [f"## Per day ({L} min)", "", "| day | status | logged | rows | fail rate | log loss model | "
-            "log loss B3 | gain | coverage | data age p95 | largest drift (PSI) |", "|---|---|---|---|---|---|---|---|---|---|---|"]
+            "log loss B3 | gain | coverage | data age p95 | largest drift (PSI) | live = offline |",
+            "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for d in s["per_day"]:
         if d["status"] != "ok":
-            out.append(f"| {d['service_day']} | {d['status']} | | | | | | | | | {d.get('reason') or ''} |")
+            out.append(f"| {d['service_day']} | {d['status']} | | | | | | | | | | {d.get('reason') or ''} |")
             continue
         out.append(f"| {d['service_day']} | ok | {d['logged']:,} | {d['rows'] or 0:,} | {_fmt(d['fail_rate'], 3)} | "
                    f"{_fmt(d['log_loss_model'])} | {_fmt(d['log_loss_B3'])} | {_pct(d['gain_vs_B3'])} | "
                    f"{_share(d['coverage'])} | "
-                   f"{d['data_age_p95_s']} s | {d['max_psi_feature'] or 'n/a'} {_fmt(d['max_psi'], 3)} |")
+                   f"{d['data_age_p95_s']} s | {d['max_psi_feature'] or 'n/a'} {_fmt(d['max_psi'], 3)} | "
+                   f"{_share(d['skew_identical'])} |")
     latest = s["latest"]
     if latest:
         out += ["", f"## Drift on {latest['service_day']}", ""]
@@ -119,6 +125,15 @@ def _markdown(s: dict, cfg) -> str:
             out += ["", "| cutoff | fail rate live | fail rate training |", "|---|---|---|"]
             out += [f"| {c} min | {_fmt(v['live'], 3)} | {_fmt(v['training'], 3)} |"
                     for c, v in sorted(d["fail_rate"].items(), key=lambda kv: -int(kv[0]))]
+        out += ["", f"## Training/serving skew on {latest['service_day']}", "",
+                "Features recomputed offline at each prediction's scoring time vs the features the API logged."]
+        for model_id, d in latest.get("skew", {}).items():
+            if not isinstance(d, dict) or not d.get("available") or not d.get("rows"):
+                out.append(f"- {model_id}: {d.get('reason', 'no rows') if isinstance(d, dict) else d}")
+                continue
+            least = ", ".join(f"{k} {_share(d['per_feature'][k]['equal_share'])}" for k in d["least_equal"])
+            out.append(f"- {model_id}: {d['rows']:,} rows, {_share(d['identical_share'])} identical in every feature"
+                       + (f"; least equal: {least}" if least else ""))
         ops = latest["operations"]
         out += ["", f"## Operations on {latest['service_day']}", "",
                 f"- Logged predictions: {ops['logged']:,} ({', '.join(f'{k} {v:,}' for k, v in ops['by_outcome'].items())})",

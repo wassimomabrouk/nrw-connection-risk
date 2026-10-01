@@ -100,7 +100,7 @@ Every minute, all upcoming connections at the five hubs get a failure probabilit
 python -m nrw_connection_risk.monitoring.daily
 ```
 
-Every morning the server labels the previous day's logged predictions with the dataset builder (the same labels as training) and scores the model, B3 and the DB rule on live traffic. It also compares every input with the training data (population stability index) and reports coverage, logging lag and data age. Details: [docs/MONITORING.md](docs/MONITORING.md).
+Every morning the server labels the previous day's logged predictions with the dataset builder (the same labels as training) and scores the model, B3 and the DB rule on live traffic. It also compares every input with the training data (population stability index), recomputes each logged prediction's features offline to check that live and training features are identical, and reports coverage and data age. A dashboard in the API shows it all. Details: [docs/MONITORING.md](docs/MONITORING.md).
 
 ## Data source
 

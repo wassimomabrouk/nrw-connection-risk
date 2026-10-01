@@ -21,6 +21,7 @@ class ServingConfig:
     flush_interval_s: float = 600
     max_late_min: float = 5
     max_data_age_s: float = 300
+    monitoring_dir: Path = Path("data/monitoring")
 
 
 def load_serving_config(path: Path, root: Path) -> ServingConfig:
@@ -36,4 +37,5 @@ def load_serving_config(path: Path, root: Path) -> ServingConfig:
         models_dir=p(c["model"]["models_dir"]), bundle=str(c["model"]["bundle"]),
         log_dir=p(c["log"]["dir"]), flush_interval_s=float(c["log"]["flush_interval_s"]),
         max_late_min=float(c["log"]["max_late_min"]), max_data_age_s=float(c["health"]["max_data_age_s"]),
+        monitoring_dir=p(c.get("monitoring", {}).get("dir", "data/monitoring")),
     )

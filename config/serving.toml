@@ -23,3 +23,6 @@ max_late_min = 5                   # a mark missed by more than this (e.g. servi
 
 [health]
 max_data_age_s = 300               # older data: status "degraded"
+
+[monitoring]
+dir = "data/monitoring"            # written by the daily monitoring job; shown at /dashboard
