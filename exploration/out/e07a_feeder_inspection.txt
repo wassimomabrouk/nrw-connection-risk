@@ -1,0 +1,67 @@
+e07a feeder inspection, service day 2026-09-30 (2026-09-30 02:00:00 to 2026-10-01 02:00:00 UTC), data 2026-09-29 20:00:00.469493 to 2026-10-01 03:44:29.703162
+12 feeders, 5 hubs
+
+1. Volume per feeder (planned stops in the window, runs, realtime observations, median gap between polls)
+   Neuss Hbf                stops  1,398  runs   758  obs  41,357  poll gap   120 s
+   Dortmund Hbf             stops  1,794  runs 1,486  obs  51,108  poll gap   120 s
+   Horrem                   stops    701  runs   427  obs  20,312  poll gap   120 s
+   Düsseldorf-Unterrath     stops    502  runs   251  obs  13,673  poll gap   120 s
+   Köln-Blumenberg          stops    568  runs   284  obs  14,884  poll gap   120 s
+   Dinslaken                stops    396  runs   198  obs  13,076  poll gap   120 s
+   Troisdorf                stops    726  runs   408  obs  16,906  poll gap   120 s
+   Bonn-Bad Godesberg       stops    348  runs   174  obs  13,433  poll gap   120 s
+   Köln-Dellbrück           stops    474  runs   304  obs  12,387  poll gap   120 s
+   Düsseldorf-Rath          stops    236  runs   118  obs   5,124  poll gap   120 s
+   Wuppertal-Vohwinkel      stops  1,002  runs   509  obs  26,623  poll gap   120 s
+   Frankfurt(Main)Hbf       stops  1,974  runs 1,774  obs  64,326  poll gap   120 s
+
+2. Coverage: 3,199 train arrivals at the hubs
+   pass at least one feeder before the hub (planned path): 57.1%
+   Aachen Hbf                 21.4% of 309
+   Duisburg Hbf               54.0% of 487
+   Düsseldorf Hbf             73.2% of 806
+   Essen Hbf                  42.9% of 475
+   Köln Hbf                   62.7% of 1,122
+   departures (train B side): 43.1% of 3,211 come through a feeder before the hub
+
+3. Join: 2,116 (arrival, feeder on its path) pairs
+   found at the feeder with the same run id: 100.0%
+   implausible times (feeder not 0 to 240 min before the hub): 0.0%
+
+4. Lead time, closest feeder before the hub (minutes, p10 / median / p90): 12 / 25 / 68
+   at the 60-min cutoff, already passed a feeder (planned): 12.9% of all arrivals, lead 66 / 82 / 142 min
+   at the 30-min cutoff, already passed a feeder (planned): 27.8% of all arrivals, lead 35 / 49 / 89 min
+   at the 10-min cutoff, already passed a feeder (planned): 54.1% of all arrivals, lead 15 / 26 / 69 min
+
+5. Information at the cutoff (arrivals that passed a feeder before it; delays in minutes)
+   60 min: 385 arrivals, feeder realtime value known for 98.4%
+          error of DB's hub prognosis 13.11, of the feeder delay 13.83 (mean abs)
+          feeder and DB differ by 2+ min in 62.3%
+          corr(DB's error, feeder minus DB) = +0.049   (0: DB already uses it; > 0: extra signal)
+   30 min: 848 arrivals, feeder realtime value known for 99.5%
+          error of DB's hub prognosis 8.22, of the feeder delay 9.57 (mean abs)
+          feeder and DB differ by 2+ min in 44.8%
+          corr(DB's error, feeder minus DB) = +0.044   (0: DB already uses it; > 0: extra signal)
+   10 min: 1,568 arrivals, feeder realtime value known for 99.4%
+          error of DB's hub prognosis 6.08, of the feeder delay 7.60 (mean abs)
+          feeder and DB differ by 2+ min in 35.9%
+          corr(DB's error, feeder minus DB) = -0.060   (0: DB already uses it; > 0: extra signal)
+
+6. Trains at the arrival's closest feeder in the 30 min before the 30-min cutoff (p10 / median / p90): 3 / 9 / 30
+
+7. Corridor state (other trains at the feeders on the arrival's path) vs hub state
+   target: DB's error = final hub delay - DB's hub prognosis at the cutoff (minutes)
+   hub = mean delay at the hub within +-30 min; line = A's line at the hub in the last 60 min (both model features)
+   corridor = the same two quantities at the feeders on A's path (mean over them)
+   60 min: 1,655 arrivals; known: hub 100.0%, line 82.3%, corridor 99.6%, line at feeder 86.5%
+          corr with DB's error: hub_delay +0.175, line_hub +0.178, corridor +0.169, line_corridor +0.182
+          corridor beyond hub and line: partial corr +0.040 (noise level about +-0.049, n 1,648)
+          line_corridor beyond hub and line: partial corr +0.061 (noise level about +-0.053, n 1,432)
+   30 min: 1,655 arrivals; known: hub 100.0%, line 85.1%, corridor 100.0%, line at feeder 89.4%
+          corr with DB's error: hub_delay +0.223, line_hub +0.167, corridor +0.204, line_corridor +0.171
+          corridor beyond hub and line: partial corr +0.070 (noise level about +-0.049, n 1,655)
+          line_corridor beyond hub and line: partial corr +0.040 (noise level about +-0.052, n 1,479)
+   10 min: 1,655 arrivals; known: hub 100.0%, line 85.7%, corridor 100.0%, line at feeder 89.0%
+          corr with DB's error: hub_delay +0.264, line_hub +0.203, corridor +0.231, line_corridor +0.176
+          corridor beyond hub and line: partial corr +0.067 (noise level about +-0.049, n 1,655)
+          line_corridor beyond hub and line: partial corr -0.000 (noise level about +-0.052, n 1,473)
