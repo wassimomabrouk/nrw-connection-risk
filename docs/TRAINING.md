@@ -32,6 +32,14 @@ Logistic regression: numeric inputs clipped at the training 0.5%/99.5% quantiles
 - **validate**: fit on all training days, evaluate on the validation period. Used for model, calibration and threshold choices.
 - **test**: fit on training + validation, evaluate on the test period. The loader refuses test and robustness days unless the mode unlocks them; `--mode test` additionally requires `--final`, and every evaluation is appended to `reports/test_log.jsonl` (kept in git). A second evaluation needs `--rerun-reason "..."`, which is logged next to the first.
 
+## Feature selection (e06)
+
+```
+python -m nrw_connection_risk.training.feature_selection
+```
+
+Decides the model's feature groups once, with the rule pre-registered in DESIGN.md section 3 and `config/feature_selection.toml`: gradient boosting (one model per cutoff, no calibration) on expanding windows of whole days with daily folds; every group is compared with the variant without it (leave out for the reference groups, add for the others), against a noise floor from refitting the reference with another seed. Refuses days outside the training period and an incomplete window (`--allow-missing` overrides and is recorded). Writes `runs/<timestamp>-e06/` (`report.md`, `decision.json`, `predictions.parquet`) and a copy of the report to `exploration/out/e06_feature_selection.md`. Fits several variants on every fold, so it takes a while; it prints progress.
+
 ## Output: `runs/<timestamp>-<mode>/`
 
 | File | Content |
@@ -48,4 +56,4 @@ Model selection (reported in every run, binding only on validation): best log lo
 
 ## Tests
 
-`tests/test_training.py` runs on synthetic feature tables whose truth is known (failure depends on DB's slack and on the hub state, `tests/synthetic_features.py`): the pipeline must find that lr and gbm beat B3 at every cutoff with intervals above zero, and that B0 is far worse. Further tests: the lock and its log, fit days always before evaluation days, flipping the labels of an evaluation day does not change its predictions, the fast AUC equals scikit-learn's, calibration repairs a deliberately overconfident model, B1's shrinkage by hand.
+`tests/test_training.py` runs on synthetic feature tables whose truth is known (failure depends on DB's slack and on the hub state, `tests/synthetic_features.py`): the pipeline must find that lr and gbm beat B3 at every cutoff with intervals above zero, and that B0 is far worse. Further tests: the lock and its log, fit days always before evaluation days, flipping the labels of an evaluation day does not change its predictions, the fast AUC equals scikit-learn's, calibration repairs a deliberately overconfident model, B1's shrinkage by hand. `tests/test_feature_selection.py` checks the rule condition by condition and runs e06 end to end on synthetic data: it must keep the hub group (the truth), reject noise groups, and apply two changes together.

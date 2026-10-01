@@ -27,6 +27,7 @@ nrw-dataset = "nrw_connection_risk.dataset.build:main"
 nrw-features = "nrw_connection_risk.features.build:main"
 nrw-evaluate = "nrw_connection_risk.training.evaluate:main"
 nrw-fit-bundle = "nrw_connection_risk.training.fit_bundle:main"
+nrw-select-features = "nrw_connection_risk.training.feature_selection:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

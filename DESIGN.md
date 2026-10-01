@@ -1,6 +1,6 @@
 # Design
 
-Status: **draft v0.5 (2026-09-29)**. Sections 1, 2, 4, 5 and 6 are decided; section 3 (features) is a draft until the second feature exploration on about three weeks of data. The complete document is locked before any model is trained, and later changes are recorded in the change log with their reason.
+Status: **draft v0.6 (2026-10-01)**. Sections 1, 2, 4, 5 and 6 are decided; section 3 (features) is a draft until the second feature exploration on about three weeks of data. The complete document is locked before any model is trained, and later changes are recorded in the change log with their reason.
 
 ## 1. Unit of prediction: the transfer candidate
 
@@ -68,7 +68,26 @@ Findings that shape the design:
 
 The second exploration uses the feature pipeline code, not exploration code, and decides this section. The pipeline (`src/nrw_connection_risk/features/`, [docs/FEATURES.md](docs/FEATURES.md)) computes all six groups, so dropped groups can be re-tested; `config/features.toml` selects the groups a model uses (draft: DB, hub, freshness, context).
 
-**Feeder stations.** Because the missing information lies in the network state, the collector also polls stations 2 to 8 stops upstream of the hubs (role `feeder`, collected from 2026-09-29: the 12 stations from `tools/select_feeders.py --min-pos 4 --max-pos 10`, which together lie on the path of 47% of transfer candidates; stations closer than 4 stops were excluded because they give almost no lead time). Data that is not collected cannot be added later, so they are collected now; they enter the feature set only if an exploration shows a gain over the hub-level network features.
+**Second feature exploration (e06), pre-registered.** Written and committed on 2026-10-01, before any day of its evaluation period had been evaluated. Code: `src/nrw_connection_risk/training/feature_selection.py`; window and thresholds: `config/feature_selection.toml`.
+
+- *Data.* Service days 2026-09-24 to 2026-10-14 (three weeks, three weekends and the 3 October holiday), training period only. Run once, after the last day is built (from 16 October). Missing days stop the run unless explicitly allowed, which the report records.
+- *Model.* The model as deployed: gradient boosting, one model per cutoff, the settings of `config/training.toml`, no calibration (chosen later on validation). e05 screened groups with a logistic regression; e06 decides with the model class that is actually used, and that B3 shares.
+- *Folds.* Expanding window with daily folds: fit on all earlier days of the window (at least 7), evaluate on the next day. Evaluation days are 1 to 14 October; 24 to 30 September are only fitted on, so no evaluated day was seen by e05 or by any earlier pipeline run.
+- *Variants.* Reference = DB, hub, freshness (the e05 keeps). Each group in the reference is tested by leaving it out, each other group (context, trend, messages) by adding it, so every group carries the burden of proof under the same rule. DB's four inputs are B3's information and are never dropped.
+- *Noise floor.* The reference is refitted with another random seed (it changes the rows gradient boosting holds out for early stopping). The change in log loss this causes, with no change in information, sets how large a real gain must be.
+- *Rule.* A group is in the feature set if having it, compared with the variant without it on the same rows:
+  1. lowers log loss at 30 minutes by at least 0.5%, and by at least twice the noise-floor change;
+  2. with a 95% interval above zero (resampling whole evaluation days);
+  3. on at least 60% of the evaluation days;
+  4. and is at most 0.2% worse at 60 and at 10 minutes (or twice the noise-floor change at that cutoff, if larger, so that noise alone cannot reject a group).
+
+  Reasons: below 0.5% a group is not worth inputs that have to be computed live and monitored (the e05 keeps gained 0.8% to 1.8% at 30 minutes); the interval and the day share guard against a gain made by one or two disrupted days, which is what context showed in e05; condition 4 stops a group from trading one cutoff against another.
+- *Combination.* If more than one change passes (a reference group removed, another added), all changes are fitted together once. If that is worse at 30 minutes than the best single change, only the best single change is applied.
+- *Feeder stations (e07).* Their data starts on 30 September, which would leave e06 only 8 evaluation days for them: too few for the interval and day-share conditions to mean much. They are therefore decided in a separate run with the same rule and code: service days 2026-09-30 to 2026-11-01 (26 evaluation days from 7 October), reference = the e06 result, feeder group added; run from 3 November, before validation. Its pipeline code, leakage tests and configuration are committed before that run. e07 evaluates some of e06's days again, which is acceptable because it answers a different question (the feeder group was not part of e06).
+- *Output.* `exploration/out/e06_feature_selection.md` (kept in git): noise floor, every test with its gains at all cutoffs, interval and day share, the conditions a group failed, the final groups, and every variant against B3 for information. The decision is made against the reference, never against B3.
+- *Afterwards.* `config/features.toml` is set to the result, this section is rewritten with it and locked, and the stand-in model is refitted. If no group passes, the feature set is DB's four inputs, the model coincides with B3, and that is reported as the result of the feature work.
+
+**Feeder stations.** Because the missing information lies in the network state, the collector also polls stations 2 to 8 stops upstream of the hubs (role `feeder`, collected from 2026-09-29: the 12 stations from `tools/select_feeders.py --min-pos 4 --max-pos 10`, which together lie on the path of 47% of transfer candidates; stations closer than 4 stops were excluded because they give almost no lead time). Data that is not collected cannot be added later, so they are collected now; they enter the feature set only if an exploration shows a gain over the hub-level network features (e07, see above).
 ## 4. Baselines and models
 
 **How good DB already is** (service day 2026-09-24, `exploration/out/e04_db_prognosis_baseline.txt`). For every candidate, DB's prognosis for A and B was reconstructed as it was known at the cutoff, using only observations up to that moment:
@@ -125,3 +144,4 @@ The locked test period ends before the annual timetable change on 2026-12-13, wh
 - 2026-09-29: v0.4, first feature exploration (e05). B3 changed from logistic regression to gradient boosting on the same DB inputs, because a nonlinear model on DB's prognosis alone beats the linear one by 3.6 to 9.1% in log loss; with a linear B3 the headline would mostly measure nonlinearity. The linear version is kept as B3-lin. Section 3 drafted; locked after the second exploration.
 - 2026-09-29: feature pipeline implemented (no design change): all groups as in e05, shared by training and live prediction, with leakage tests (future rewrite, truncation at each cutoff).
 - 2026-09-29: v0.5, training pipeline (`src/nrw_connection_risk/training/`, [docs/TRAINING.md](docs/TRAINING.md)). Gradient boosting is implemented with scikit-learn's HistGradientBoosting instead of the LightGBM library: the same histogram algorithm with native missing values and categories, no compiled extra dependency on the ARM server, and already used in e05; B3 uses the identical implementation and settings. Specified without changing intent: the rolling-origin folds, the calibration procedure and the B1 cells. The test period is locked in code: reading it needs an explicit flag, and every evaluation is logged in `reports/test_log.jsonl`.
+- 2026-10-01: v0.6, pre-registered protocol and rule for the second feature exploration (e06) in section 3, committed before its evaluation days were evaluated; implemented in `training/feature_selection.py` with `config/feature_selection.toml`. Feeder stations are decided separately in e07 (longer window, same rule).

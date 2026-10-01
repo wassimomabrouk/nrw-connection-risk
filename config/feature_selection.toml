@@ -1,0 +1,28 @@
+# Second feature exploration (e06): which feature groups the model uses (DESIGN.md section 3).
+# Pre-registered: this file and the rule in DESIGN.md were committed before any day of the
+# evaluation window was evaluated. Changing them after the run requires a change-log entry.
+# Model settings (gradient boosting, one model per cutoff) come from config/training.toml.
+
+[data]
+first_day = "2026-09-24"
+last_day = "2026-10-14"           # 3 weeks: 3 weekends and the 3 October holiday
+min_train_days = 7                # expanding window with daily folds: evaluation days 1 to 14 October
+
+[reference]
+groups = ["db", "hub", "freshness"]          # the groups e05 kept
+
+[candidates]
+drop = ["hub", "freshness"]                  # must still earn their place: reference vs reference minus the group
+add = ["context", "trend", "messages"]       # reference plus the group vs reference
+
+[restricted]
+# groups whose data starts later than first_day: name = first day with data. Compared only on folds
+# that fit and evaluate on days from that date, against the reference refit on the same days.
+# (empty in e06: the feeder group is decided in e07 on a longer window, DESIGN.md section 3)
+
+[rule]
+primary_cutoff = 30
+min_gain = 0.005                  # at least 0.5% lower log loss at 30 min ...
+noise_multiple = 2.0              # ... and at least twice the change from refitting the reference with another seed
+min_day_share = 0.6               # better on at least 60% of the evaluation days (30 min)
+max_loss_other = 0.002            # at 60 and 10 min, at most 0.2% worse (or twice that cutoff's noise floor, if larger)
