@@ -9,6 +9,8 @@ Read-only. Uses the collector's parsed layer for one service day and answers:
   5. Information: at the cutoff, does the train's delay seen at the feeder say anything about
      its final delay at the hub that DB's own hub prognosis does not already say?
   6. Corridor traffic: how many trains a corridor-state feature at the feeder could average over.
+  7. Corridor state: do the delays of OTHER trains at the feeders on the arrival's path explain
+     DB's error at the hub, beyond the hub-level state the model already uses?
 
 Only data before the e07 evaluation days (from 2026-10-07) is used, and no connection labels.
 
@@ -29,6 +31,8 @@ import pandas as pd
 from nrw_connection_risk.dataset.load import load_window
 from nrw_connection_risk.dataset.state import final_state, state_at
 from nrw_connection_risk.dataset.timeutil import service_day_bounds
+from nrw_connection_risk.features.compute import hub_state
+from nrw_connection_risk.features.config import FeatureConfig
 
 ROOT = Path(__file__).resolve().parents[1]
 CUTOFFS = (60, 30, 10)
@@ -172,6 +176,60 @@ def inspect(parsed: Path, day: date, hubs: dict[str, str], feeders: dict[str, st
         counts.append(np.searchsorted(times, t, side="right") - np.searchsorted(times, t - np.timedelta64(30, "m")))
     c = pd.Series(np.concatenate(counts)) if counts else pd.Series(dtype=float)
     out(f"\n6. Trains at the arrival's closest feeder in the 30 min before the 30-min cutoff (p10 / median / p90): {q(c)}")
+
+    # ---- 7. corridor state vs hub state, computed with the feature pipeline's own hub-state code
+    out("\n7. Corridor state (other trains at the feeders on the arrival's path) vs hub state")
+    out("   target: DB's error = final hub delay - DB's hub prognosis at the cutoff (minutes)")
+    out("   hub = mean delay at the hub within +-30 min; line = A's line at the hub in the last 60 min (both model features)")
+    out("   corridor = the same two quantities at the feeders on A's path (mean over them)")
+    cfg = FeatureConfig()
+    step = pd.Timedelta(minutes=cfg.grid_min)
+    cand = A[A.n_on_path > 0].copy()
+    g_lo, g_hi = (cand.pt.min() - pd.Timedelta(minutes=70)).floor(step), cand.pt.max()
+    hub_t, line_t = hub_state(plan[plan.eva.isin(list(hubs))], obs, g_lo, g_hi, cfg)
+    fed_t, fline_t = hub_state(plan[plan.eva.isin(list(feeders))], obs, g_lo, g_hi, cfg)
+    res["corridor"] = {}
+    for L in CUTOFFS:
+        d = cand.copy()
+        t_cut = d.pt - pd.Timedelta(minutes=L)
+        d["g"] = t_cut.dt.floor(step).values
+        hub_now = state_at(d.stop_id + "|ar", t_cut, obs)
+        end = final_state(d.stop_id + "|ar", obs)
+        d["err"] = (end.ct - d.pt).dt.total_seconds() / 60 - ((hub_now.ct - d.pt).dt.total_seconds() / 60).fillna(0)
+        d = d[d.err.notna() & (end.cs != "c")].reset_index(drop=True)
+        d = d.drop(columns=["hub"]).merge(hub_t[["eva", "g", "hub_mean_delay"]], on=["eva", "g"], how="left")
+        d = d.merge(line_t, on=["eva", "g", "line"], how="left").rename(
+            columns={"hub_mean_delay": "hub_delay", "line_recent_delay_a": "line_hub"})
+        x = d[["stop_id", "g", "line", "feeders_on_path"]].explode("feeders_on_path").rename(columns={"feeders_on_path": "eva"})
+        x = x.merge(fed_t[["eva", "g", "hub_mean_delay"]], on=["eva", "g"], how="left")
+        x = x.merge(fline_t, on=["eva", "g", "line"], how="left")
+        agg = x.groupby("stop_id").agg(corridor=("hub_mean_delay", "mean"), line_corridor=("line_recent_delay_a", "mean"))
+        d = d.join(agg, on="stop_id")
+        r = {"n": len(d)}
+        out(f"   {L:>2} min: {len(d):,} arrivals; known: hub {pct(d.hub_delay.notna().mean())}, line {pct(d.line_hub.notna().mean())}, "
+            f"corridor {pct(d.corridor.notna().mean())}, line at feeder {pct(d.line_corridor.notna().mean())}")
+        corr = {}
+        for c in ("hub_delay", "line_hub", "corridor", "line_corridor"):
+            ok = d[c].notna()
+            corr[c] = np.corrcoef(d.err[ok], d[c][ok])[0, 1] if ok.sum() > 30 and d[c][ok].std() > 0 else np.nan
+        out("          corr with DB's error: " + ", ".join(f"{c} {v:+.3f}" for c, v in corr.items()))
+        # beyond the hub state: residuals after a linear fit on hub and line_hub (missing -> column mean)
+        for c in ("corridor", "line_corridor"):
+            ok = d[c].notna()
+            if ok.sum() <= 30:
+                continue
+            Z = d.loc[ok, ["hub_delay", "line_hub"]]
+            Z = np.column_stack([np.ones(ok.sum()), Z.fillna(Z.mean()).fillna(0).to_numpy(),
+                                 d.loc[ok, ["hub_delay", "line_hub"]].isna().to_numpy().astype(float)])
+            beta = lambda y: np.linalg.lstsq(Z, y, rcond=None)[0]   # noqa: E731
+            ye, yc = d.err[ok].to_numpy(), d[c][ok].to_numpy()
+            re, rc = ye - Z @ beta(ye), yc - Z @ beta(yc)
+            pc = np.corrcoef(re, rc)[0, 1] if rc.std() > 0 else np.nan
+            se = 1 / np.sqrt(ok.sum())
+            out(f"          {c} beyond hub and line: partial corr {pc:+.3f} (noise level about +-{2 * se:.3f}, n {ok.sum():,})")
+            r[f"partial_{c}"] = float(pc)
+        r.update({f"corr_{k}": float(v) for k, v in corr.items()})
+        res["corridor"][L] = r
     return res
 
 
