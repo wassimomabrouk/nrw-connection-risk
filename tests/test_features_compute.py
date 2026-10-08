@@ -71,13 +71,32 @@ def test_trend_is_change_of_db_delay():
     assert list(out.trend_b_15) == [0, 0]      # B never changed
 
 
-def test_freshness_minutes_since_last_observation():
-    rows = pd.DataFrame({"t_cut": [T("2026-09-24 07:50")] * 2,
-                         "a_obs_cut": [T("2026-09-24 07:48"), pd.NaT],
-                         "b_obs_cut": [pd.NaT, T("2026-09-24 07:20")]})
-    out = freshness(rows)
-    assert out.age_a_min[0] == 2 and np.isnan(out.age_a_min[1])
+def test_freshness_whole_minutes_since_last_observation():
+    o = obs_frame([("A|ar", "2026-09-24 07:48:25", "2026-09-24 08:14", None),
+                   ("B2|dp", "2026-09-24 07:20:50", "2026-09-24 08:30", None)])
+    rows = pd.DataFrame({"stop_id_a": ["A", "A2"], "stop_id_b": ["B", "B2"],
+                         "t_cut": [T("2026-09-24 07:50")] * 2})
+    out = freshness(rows, o)
+    assert out.age_a_min[0] == 2 and np.isnan(out.age_a_min[1])       # 07:48:25 -> marks 07:49, 07:50
     assert np.isnan(out.age_b_min[0]) and out.age_b_min[1] == 30
+
+
+def test_freshness_does_not_depend_on_polling_or_scoring_second():
+    """The collector's polling second and the service's scoring second change with every
+    restart; the age must not."""
+    def ages(poll_second, cut):
+        o = obs_frame([("A|ar", f"2026-09-24 07:4{m}:{poll_second:02d}", "2026-09-24 08:14", None)
+                       for m in (5, 6)])
+        rows = pd.DataFrame({"stop_id_a": ["A"], "stop_id_b": ["B"], "t_cut": [T(cut)]})
+        return freshness(rows, o).age_a_min[0]
+    training = [ages(s, "2026-09-24 07:50:00") for s in (2, 25, 50)]      # cut at the minute mark
+    live = [ages(s, "2026-09-24 07:50:37") for s in (2, 25, 50)]          # scored 37 s after it
+    assert training == live == [4.0, 4.0, 4.0]                            # last seen 07:46:xx
+    # an observation after the cutoff minute's mark is not used, even if the service scores later
+    o = obs_frame([("A|ar", "2026-09-24 07:46:10", "2026-09-24 08:14", None),
+                   ("A|ar", "2026-09-24 07:50:20", "2026-09-24 08:15", None)])
+    rows = pd.DataFrame({"stop_id_a": ["A"], "stop_id_b": ["B"], "t_cut": [T("2026-09-24 07:50:37")]})
+    assert freshness(rows, o).age_a_min[0] == 4
 
 
 def test_first_seen_messages_parses_and_keeps_earliest():

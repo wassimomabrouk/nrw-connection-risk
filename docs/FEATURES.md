@@ -33,7 +33,7 @@ Carried along, never model inputs: `service_day, cutoff_min, t_cut (UTC), eva, s
 | | `hub_share_late5` | share of them predicted 5+ min late | same |
 | | `hub_share_cancel` | share cancelled | same |
 | | `line_recent_delay_a` | mean delay of arrivals of A's line at the hub in the last 60 min | no such arrival |
-| freshness | `age_a_min`, `age_b_min` | minutes since the last observation of A / B | event never observed before the cutoff |
+| freshness | `age_a_min`, `age_b_min` | whole minutes since the last observation of A / B: minute marks between the last observation up to the cutoff minute and the cutoff minute | event never observed before the cutoff minute |
 | context | `planned_slack_min` | planned transfer time | never |
 | | `hour_sin`, `hour_cos` | local hour of A's planned arrival (Europe/Berlin, DST-aware) | never |
 | | `day_type` | weekday / saturday / sunday_holiday (NRW holidays from the config) | never |
@@ -45,7 +45,7 @@ Carried along, never model inputs: `service_day, cutoff_min, t_cut (UTC), eva, s
 | | `corridor_line_delay_a` | mean delay of arrivals of A's line in the last 60 min at those feeders, averaged | no such arrival |
 | | `corridor_delay_b` | as `corridor_delay_a`, for B's path into the hub | B starts at the hub or passes no feeder |
 
-Categorical: `segment_a, segment_b, hub, day_type`. Hub state is computed on a 5-minute grid and joined at the last grid point at or before the cutoff, so it is up to 5 minutes older than the cutoff. The feeder group applies the same hub-state code to the 12 feeder stations (`[feeder.stations]` in `config/features.toml`, names as they appear in planned paths), so it follows the same point-in-time rules; a train's path is used only if its arrival at the hub was already in the timetable at the cutoff. Feature version 2 added the feeder group (`data/features/v2`); whether models use it is decided by e07 (DESIGN.md section 3).
+Categorical: `segment_a, segment_b, hub, day_type`. Hub state is computed on a 5-minute grid and joined at the last grid point at or before the cutoff, so it is up to 5 minutes older than the cutoff. The feeder group applies the same hub-state code to the 12 feeder stations (`[feeder.stations]` in `config/features.toml`, names as they appear in planned paths), so it follows the same point-in-time rules; a train's path is used only if its arrival at the hub was already in the timetable at the cutoff. Freshness is counted on the minute grid, so it does not depend on the second at which the collector polls or the service scores (both change with every restart; with fractional minutes the live distribution shifted at every restart, found by the daily drift check). Feature version 2 added the feeder group and whole-minute freshness (`data/features/v2`); whether models use it is decided by e07 (DESIGN.md section 3).
 
 ## Leakage guarantees
 

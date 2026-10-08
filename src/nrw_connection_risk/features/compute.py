@@ -37,10 +37,19 @@ def trend(rows: pd.DataFrame, obs: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def freshness(rows: pd.DataFrame) -> pd.DataFrame:
-    """Minutes since the last observation of A and B before the cutoff (NaN if never observed)."""
-    return pd.DataFrame({"age_a_min": _minutes(rows.t_cut - rows.a_obs_cut),
-                         "age_b_min": _minutes(rows.t_cut - rows.b_obs_cut)}, index=rows.index)
+def freshness(rows: pd.DataFrame, obs: pd.DataFrame) -> pd.DataFrame:
+    """Whole minutes since the last observation of A and B: the number of minute marks between
+    the last observation made up to the cutoff minute and the cutoff minute (NaN if never observed).
+
+    Counting on the minute grid makes the value independent of the second at which the collector
+    polls and the service scores (both change with every restart): training rows are cut at the
+    minute mark, live rows a few seconds after it, and both get the same age."""
+    mark = rows.t_cut.dt.floor("min")
+    out = pd.DataFrame(index=rows.index)
+    for col, key in (("age_a_min", rows.stop_id_a + "|ar"), ("age_b_min", rows.stop_id_b + "|dp")):
+        last = state_at(key, mark, obs).obs
+        out[col] = _minutes(mark - last.dt.floor("min"))
+    return out
 
 
 def _count_seen(keys: pd.Series, times: pd.Series, first_seen: pd.DataFrame, key_col: str) -> pd.Series:
@@ -194,7 +203,7 @@ def compute_all(rows: pd.DataFrame, plan: pd.DataFrame, obs: pd.DataFrame, event
     """Every feature group for the given rows (dataset rows or live query rows)."""
     if rows.empty:
         return pd.DataFrame(columns=ALL_FEATURES, index=rows.index)
-    parts = [db(rows), hub(rows, plan, obs, cfg), freshness(rows), context(rows, cfg),
+    parts = [db(rows), hub(rows, plan, obs, cfg), freshness(rows, obs), context(rows, cfg),
              trend(rows, obs), messages(rows, event_msgs, stop_msgs), feeder(rows, plan, obs, cfg)]
     out = pd.concat(parts, axis=1)
     out = out.loc[:, ~out.columns.duplicated()]

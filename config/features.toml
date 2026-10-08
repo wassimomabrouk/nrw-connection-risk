@@ -1,7 +1,7 @@
 # Feature pipeline settings (DESIGN.md section 3). The builder always computes every
 # group; `groups` selects what training uses. Bump feature_version when a definition changes.
 
-feature_version = 2              # 2: feeder group added (DESIGN.md section 3)
+feature_version = 2              # 2: feeder group added, freshness in whole minutes (DESIGN.md section 3)
 groups = ["db", "hub", "freshness", "context"]   # draft decision after e05; set by e06, then e07 (feeder)
 
 [hub]
