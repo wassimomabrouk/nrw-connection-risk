@@ -244,7 +244,10 @@ def render(summary: dict | None, health: dict, model: dict | None) -> str:
         if drift:
             cards.append(f'<div class="card"><h2>Input drift, {escape(latest["service_day"])}</h2>'
                          '<p class="note">Population stability index of each input against the training data. '
-                         "Lines at 0.1 (moderate) and 0.25 (large). ✓ stable, ! moderate, ✕ large.</p>" + psi_chart(drift["psi"], drift["level"]) + "</div>")
+                         "Lines at 0.1 (moderate) and 0.25 (large). ✓ stable, ! moderate, ✕ large."
+                         + (f" Not judged per day: {escape(', '.join(drift['not_judged']))} (constant within a day)."
+                            if drift.get("not_judged") else "")
+                         + "</p>" + psi_chart(drift["psi"], drift["level"]) + "</div>")
         if cards:
             parts.append('<div class="cards">' + "".join(cards) + "</div>")
 

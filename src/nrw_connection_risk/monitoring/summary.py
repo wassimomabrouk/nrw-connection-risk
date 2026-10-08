@@ -34,6 +34,16 @@ def _pct(x):
     return "n/a" if x is None else f"{100 * x:+.1f}%"
 
 
+def judged(drift: dict, skip) -> dict:
+    """A model's drift entry without the inputs that cannot be judged per day (constant within a
+    day by design); those are listed under `not_judged` with their PSI."""
+    if not drift.get("available"):
+        return drift
+    keep = {k: v for k, v in drift["psi"].items() if k not in skip}
+    return {**drift, "psi": keep, "level": {k: v for k, v in drift["level"].items() if k in keep},
+            "not_judged": {k: v for k, v in drift["psi"].items() if k in skip}}
+
+
 def write_summary(cfg) -> dict:
     reports = [json.loads(p.read_text(encoding="utf-8")) for p in sorted((cfg.out / "daily").glob("service_day=*.json"))]
     L = str(cfg.primary_cutoff)
@@ -43,7 +53,7 @@ def write_summary(cfg) -> dict:
         if r["status"] == "ok":
             p = r["performance"].get(L, {})
             ops = r["operations"]
-            drifts = [d for d in r["drift"].values() if d.get("available")]
+            drifts = [judged(d, cfg.drift_skip) for d in r["drift"].values() if d.get("available")]
             worst = max(((k, v) for d in drifts for k, v in d["psi"].items()), key=lambda kv: kv[1], default=(None, None))
             skews = [d for d in r.get("skew", {}).values() if isinstance(d, dict) and d.get("available") and d.get("rows")]
             skew_rows = sum(d["rows"] for d in skews)
@@ -78,6 +88,9 @@ def write_summary(cfg) -> dict:
                "primary_cutoff": cfg.primary_cutoff, "days": sum(d["status"] == "ok" for d in days),
                "per_day": days, "pooled": pooled,
                "latest": next((r for r in reversed(reports) if r["status"] == "ok"), None)}
+    if summary["latest"]:
+        summary["latest"] = {**summary["latest"],
+                             "drift": {m: judged(d, cfg.drift_skip) for m, d in summary["latest"]["drift"].items()}}
     (cfg.out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     (cfg.out / "summary.md").write_text(_markdown(summary, cfg), encoding="utf-8")
     return summary
@@ -122,6 +135,9 @@ def _markdown(s: dict, cfg) -> str:
             out += [f"Model {model_id}, {d['rows']:,} logged rows. PSI below 0.1 stable, 0.1 to 0.25 moderate, "
                     "above 0.25 large.", "", "| input | PSI | level |", "|---|---|---|"]
             out += [f"| {k} | {v:.3f} | {d['level'][k]} |" for k, v in d["psi"].items()]
+            if d.get("not_judged"):
+                out += ["", "Not judged per day (constant within a day by design): "
+                        + ", ".join(f"{k} (PSI {v:.3f})" for k, v in d["not_judged"].items()) + "."]
             out += ["", "| cutoff | fail rate live | fail rate training |", "|---|---|---|"]
             out += [f"| {c} min | {_fmt(v['live'], 3)} | {_fmt(v['training'], 3)} |"
                     for c, v in sorted(d["fail_rate"].items(), key=lambda kv: -int(kv[0]))]

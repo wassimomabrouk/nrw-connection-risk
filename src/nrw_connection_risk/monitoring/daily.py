@@ -53,6 +53,7 @@ class MonitoringConfig:
     psi_moderate: float = 0.1
     psi_large: float = 0.25
     min_drift_rows: int = 500
+    drift_skip: tuple[str, ...] = ("day_type",)
 
 
 def load_monitoring_config(path: Path, root: Path) -> MonitoringConfig:
@@ -65,7 +66,7 @@ def load_monitoring_config(path: Path, root: Path) -> MonitoringConfig:
                             calibration_bins=int(e["calibration_bins"]), bootstrap_n=int(e["bootstrap_n"]),
                             bootstrap_n_auc=int(e["bootstrap_n_auc"]), seed=int(e["seed"]),
                             psi_moderate=float(dr["moderate"]), psi_large=float(dr["large"]),
-                            min_drift_rows=int(dr["min_rows"]))
+                            min_drift_rows=int(dr["min_rows"]), drift_skip=tuple(dr.get("skip", ("day_type",))))
 
 
 # ---------------------------------------------------------------- inputs

@@ -2,6 +2,7 @@
 predictions with the dataset builder, the daily report and the summary."""
 import json
 from datetime import date
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -13,6 +14,7 @@ from test_dataset_build import CFG, DAY, scenario
 from nrw_connection_risk.monitoring.daily import (MonitoringConfig, evaluate_day, finished_days, join,
                                                   load_predictions, main, outcomes)
 from nrw_connection_risk.monitoring.profile import build_profile, drift, level, psi
+from nrw_connection_risk.monitoring.dashboard import render as render_dashboard
 from nrw_connection_risk.monitoring.summary import write_summary
 from nrw_connection_risk.serving.api import Service
 from nrw_connection_risk.serving.config import ServingConfig
@@ -163,6 +165,28 @@ min_rows = 1
 
 
 # ---------------------------------------------------------------- skew, dashboard, API routes
+
+def test_day_constant_inputs_are_not_ranked_as_drift(monitored):
+    """day_type is the same for every row of a day, so its daily PSI against a training mix of day
+    types is always large: reported separately, never the 'largest drift'."""
+    from nrw_connection_risk.monitoring.daily import load_monitoring_config
+    from nrw_connection_risk.monitoring.summary import judged
+    cfg, _, rep = monitored
+    d = next(iter(rep["drift"].values()))
+    assert "day_type" in d["psi"] and d["psi"]["day_type"] > 0.25        # the raw report keeps it
+    j = judged(d, cfg.drift_skip)
+    assert "day_type" not in j["psi"] and "day_type" not in j["level"] and "day_type" in j["not_judged"]
+    (cfg.out / "daily").mkdir(parents=True, exist_ok=True)
+    (cfg.out / "daily" / f"service_day={DAY}.json").write_text(json.dumps(rep))
+    s = write_summary(cfg)
+    assert s["per_day"][0]["max_psi_feature"] != "day_type"
+    assert "day_type" not in next(iter(s["latest"]["drift"].values()))["psi"]
+    assert "Not judged per day" in (cfg.out / "summary.md").read_text(encoding="utf-8")
+    assert "Not judged per day: day_type" in render_dashboard(s, {"status": "ok"}, None)
+    repo = load_monitoring_config(Path(__file__).resolve().parents[1] / "config" / "monitoring.toml",
+                                  Path(__file__).resolve().parents[1])
+    assert repo.drift_skip == ("day_type",)
+
 
 def test_skew_check_finds_live_equal_to_offline(monitored):
     _, _, rep = monitored

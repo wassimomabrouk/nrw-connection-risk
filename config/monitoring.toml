@@ -17,3 +17,6 @@ seed = 42
 moderate = 0.1                            # PSI thresholds
 large = 0.25
 min_rows = 500                            # fewer logged rows on a day: no PSI (too noisy)
+# inputs that are constant within a service day by design (one day is one day type): a daily PSI against
+# a training mix of day types is always large and says nothing, so they are reported but not ranked
+skip = ["day_type"]
