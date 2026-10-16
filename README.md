@@ -27,7 +27,7 @@ From the first collected day (2026-09-24; re-estimated on the full training peri
 | Dataset builder, point-in-time features with leakage tests, training and evaluation pipeline | done |
 | Live prediction API (FastAPI, Docker, CI) | running, stand-in model |
 | Daily live monitoring and dashboard (outcomes, drift, training/serving skew) | running |
-| Feature selection (e06), rule committed before the data existed | runs after 14 October |
+| Feature selection (e06), rule committed before the data existed | done: DB prognosis, hub state, freshness, context; trend and messages dropped |
 | Upstream feeder stations as features (e07) | data collected, decided early November |
 | Model selection on validation (9 to 22 November) | November |
 | Locked test (23 November to 12 December), evaluated once | December |

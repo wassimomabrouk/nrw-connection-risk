@@ -2,7 +2,7 @@
 # group; `groups` selects what training uses. Bump feature_version when a definition changes.
 
 feature_version = 2              # 2: feeder group added, freshness in whole minutes (DESIGN.md section 3)
-groups = ["db", "hub", "freshness", "context"]   # draft decision after e05; set by e06, then e07 (feeder)
+groups = ["db", "hub", "freshness", "context"]   # decided by e06 (2026-10-16); e07 decides the feeder group
 
 [hub]
 grid_min = 5                 # hub state is computed on a 5-minute grid, at the last grid point <= cutoff

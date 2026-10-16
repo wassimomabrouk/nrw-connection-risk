@@ -9,7 +9,7 @@ Each exploration answers one design question and ends in a decision recorded in 
 | e03 | Is the label observable, and how often do connections fail? | `e03_label_feasibility.py` | `out/e03_label_feasibility.txt` | section 2 |
 | e04 | How good is DB's own prognosis at fixed lead times? | `e04_db_prognosis_baseline.py` | `out/e04_db_prognosis_baseline.txt` | section 4 (baselines) |
 | e05 | Which feature groups add information to DB's prognosis? (first look, three days) | `e05_features.py` | `out/e05_features.txt` | section 3 draft, B3 as gradient boosting |
-| e06 | Which feature groups does the model use? (pre-registered rule, three weeks) | `src/.../training/feature_selection.py`, `config/feature_selection.toml` | `out/e06_feature_selection.md` (after the run, from 16 October) | section 3 |
+| e06 | Which feature groups does the model use? (pre-registered rule, three weeks) | `src/.../training/feature_selection.py`, `config/feature_selection.toml` | `out/e06_feature_selection.md` | section 3: DB, hub, freshness, context |
 | e07a | What can the upstream feeder stations tell us? (inspection, one day) | `e07a_feeder_inspection.py` | `out/e07a_feeder_inspection.txt` | feeder group definition |
 | e07 | Is the feeder group worth adding? (same rule as e06) | same code, `config/feature_selection_e07.toml` | `out/e07_feeder_selection.md` (after the run, from 3 November) | section 3 |
 

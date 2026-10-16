@@ -1,6 +1,6 @@
 # Design
 
-Status: **draft v0.8 (2026-10-08)**. Sections 1, 2, 4, 5 and 6 are decided; section 3 (features) is a draft until the second feature exploration on about three weeks of data. The complete document is locked before any model is trained, and later changes are recorded in the change log with their reason.
+Status: **v0.9 (2026-10-16)**. Sections 1, 2, 4, 5 and 6 are decided; section 3 (features) is a draft until the second feature exploration on about three weeks of data. The complete document is locked before any model is trained, and later changes are recorded in the change log with their reason.
 
 ## 1. Unit of prediction: the transfer candidate
 
@@ -47,7 +47,7 @@ Rows are also excluded if A or B was not yet in the timetable data at the cutoff
 - In 37% of the cases where A's delay alone would break the connection, it held because B was late as well. Delays of A and B are correlated, so a model must predict both, not A's delay alone.
 - One day is not representative (weather, disruptions, construction). These figures are re-estimated on the full training period.
 
-## 3. Features (draft, locked after the second feature exploration)
+## 3. Features (locked on 2026-10-16 after e06; the feeder group is decided by e07)
 
 Point-in-time rule, fixed now: a feature may only use information available at the prediction cutoff (60, 30 and 10 minutes before A's planned arrival), as observed by the collector at that time.
 
@@ -66,7 +66,7 @@ Findings that shape the design:
 - Connection notices (`c` messages) appear only after the event and cannot be used for prediction.
 - Context cannot be judged on three days: with a single weekend day, weekday, hour and hub effects mostly learn the particularities of individual days. It is re-tested with at least two weekends.
 
-The second exploration uses the feature pipeline code, not exploration code, and decides this section. The pipeline (`src/nrw_connection_risk/features/`, [docs/FEATURES.md](docs/FEATURES.md)) computes all six groups, so dropped groups can be re-tested; `config/features.toml` selects the groups a model uses (draft: DB, hub, freshness, context).
+The second exploration uses the feature pipeline code, not exploration code, and decides this section. The pipeline (`src/nrw_connection_risk/features/`, [docs/FEATURES.md](docs/FEATURES.md)) computes all six groups, so dropped groups can be re-tested; `config/features.toml` selects the groups a model uses (decided by e06: DB, hub, freshness, context).
 
 **Second feature exploration (e06), pre-registered.** Written and committed on 2026-10-01, before any day of its evaluation period had been evaluated. Code: `src/nrw_connection_risk/training/feature_selection.py`; window and thresholds: `config/feature_selection.toml`.
 
@@ -86,6 +86,26 @@ The second exploration uses the feature pipeline code, not exploration code, and
 - *Feeder stations (e07).* Their data starts on 30 September, which would leave e06 only 8 evaluation days for them: too few for the interval and day-share conditions to mean much. They are therefore decided in a separate run with the same rule and code: service days 2026-09-30 to 2026-11-01 (26 evaluation days from 7 October), reference = the e06 result, feeder group added; run from 3 November, before validation. Its pipeline code, leakage tests and configuration are committed before that run; the group's definition and the expected result are below. e07 evaluates some of e06's days again, which is acceptable because it answers a different question (the feeder group was not part of e06).
 - *Output.* `exploration/out/e06_feature_selection.md` (kept in git): noise floor, every test with its gains at all cutoffs, interval and day share, the conditions a group failed, the final groups, and every variant against B3 for information. The decision is made against the reference, never against B3.
 - *Afterwards.* `config/features.toml` is set to the result, this section is rewritten with it and locked, and the stand-in model is refitted. If no group passes, the feature set is DB's four inputs, the model coincides with B3, and that is reported as the result of the feature work.
+
+**Result of e06** (run on 2026-10-16, `exploration/out/e06_feature_selection.md`): 21 service days, 2,000,697 rows, 14 evaluation days (1 to 14 October), code 087a0c6. Refitting the reference with another seed changed log loss by at most 0.09%, so the threshold was the 0.5% minimum. Gains are relative log-loss reductions from having the group:
+
+| Group | Test | 60 min | 30 min | 95% interval (30) | 10 min | Days better (30) | Decision |
+|---|---|---|---|---|---|---|---|
+| Hub state | leave out | +2.19% | +1.41% | +0.90% to +1.99% | +0.99% | 86% | **keep** |
+| Freshness | leave out | +0.67% | +0.59% | +0.35% to +0.86% | +0.81% | 100% | **keep** |
+| Context | add | +3.04% | +3.07% | +2.30% to +3.71% | +3.28% | 93% | **keep** |
+| Trend | add | +0.01% | +0.40% | +0.20% to +0.62% | +0.97% | 79% | drop (below 0.5% at 30 min) |
+| Messages | add | +0.13% | +0.16% | +0.03% to +0.32% | +0.16% | 71% | drop (below 0.5% at 30 min) |
+
+**Feature set: DB, hub, freshness, context** (one change against the reference, so no combination check). Observations, not decisions:
+- Context gives by far the largest gain, at every hub (+2.2% to +5.4% at 30 minutes). Its instability in e05 was an artefact of three days with a single weekend day, as anticipated above.
+- Freshness passes narrowly (+0.59%) but is better on all 14 evaluation days.
+- Trend is a real but small signal (interval above zero, +0.97% at 10 minutes) that misses the 0.5% minimum at the primary cutoff. It is dropped under the rule and not re-tested on the same data.
+- Per hub, the hub-state group lowers log loss at Aachen (-1.9%), the smallest hub; per-hub figures are for information only.
+- Against B3 on the same rows, the selected set lowers log loss by 4.9%, 5.2% and 5.8% at 10, 30 and 60 minutes. These days also served to choose the set, so the figures are optimistic; the headline comparison is made on validation and on the locked test (sections 5 and 6).
+- On 11 to 14 October, 2 to 4 hub or feeder events per day changed their planned time between timetable versions (`plan_changes` in the feature build), out of several thousand; their effect on the hub state is negligible.
+
+This section is locked: changes go through the change log with a reason. The feeder group is added only if e07 (below) passes the same rule.
 
 **Feeder stations.** Because the missing information lies in the network state, the collector also polls stations 2 to 8 stops upstream of the hubs (role `feeder`, collected from 2026-09-29: the 12 stations from `tools/select_feeders.py --min-pos 4 --max-pos 10`, which together lie on the path of 47% of transfer candidates; stations closer than 4 stops were excluded because they give almost no lead time). Data that is not collected cannot be added later, so they are collected now; they enter the feature set only if e07 (above) shows a gain over the hub-level network features.
 
@@ -163,3 +183,4 @@ The locked test period ends before the annual timetable change on 2026-12-13, wh
 - 2026-10-01: v0.6, pre-registered protocol and rule for the second feature exploration (e06) in section 3, committed before its evaluation days were evaluated; implemented in `training/feature_selection.py` with `config/feature_selection.toml`. Feeder stations are decided separately in e07 (longer window, same rule).
 - 2026-10-01: v0.7, feeder inspection (e07a), definition of the feeder group (feature version 2) and the e07 configuration with its expected result, committed before e07's evaluation days. The train's own delay at a feeder is not used (no signal beyond DB's prognosis).
 - 2026-10-08: v0.8, freshness (`age_a_min`, `age_b_min`) is counted in whole minutes on the minute grid, as of the cutoff minute. With fractional minutes its values depended on the second at which the collector polls and the service scores, which changes with every restart: the daily drift check showed the live distribution jumping between restarts (PSI about 0.7 against the stand-in's training data) although the collection itself was unchanged (same polls per day before and after the collector update of 29 September), and a tree model could split between those clusters. Motivated by this measurement artefact, not by any performance result; made before e06, which tests the freshness group in this form (feature version 2, not built before this change).
+- 2026-10-16: v0.9, e06 run once as pre-registered: the feature set is DB, hub, freshness, context; trend and messages are dropped. Section 3 is locked; the feeder group is decided by e07.
