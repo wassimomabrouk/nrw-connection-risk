@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -44,6 +45,20 @@ def judged(drift: dict, skip) -> dict:
             "not_judged": {k: v for k, v in drift["psi"].items() if k in skip}}
 
 
+POOLED_COLUMNS = ["outcome", "cutoff_min", "label_fail", "p_model", "p_B3"]
+
+
+def pooled_rows(joined: Path) -> pd.DataFrame:
+    """The evaluated rows of every joined day, with only the columns the pooled table needs.
+    The joined files carry every logged feature; reading them whole made the daily job's
+    memory peak grow with every monitored day."""
+    parts = []
+    for f in sorted(joined.glob("service_day=*.parquet")):
+        j = pd.read_parquet(f, columns=POOLED_COLUMNS)
+        parts.append(j[j.outcome.eq("evaluated")].drop(columns="outcome").assign(service_day=f.stem.split("=", 1)[1]))
+    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+
+
 def write_summary(cfg) -> dict:
     reports = [json.loads(p.read_text(encoding="utf-8")) for p in sorted((cfg.out / "daily").glob("service_day=*.json"))]
     L = str(cfg.primary_cutoff)
@@ -69,11 +84,9 @@ def write_summary(cfg) -> dict:
             row["reason"] = r.get("reason")
         days.append(row)
 
-    files = sorted((cfg.out / "joined").glob("service_day=*.parquet"))
     pooled = {}
-    if files:
-        j = pd.concat([pd.read_parquet(f).assign(service_day=f.stem.split("=", 1)[1]) for f in files], ignore_index=True)
-        ev = j[j.outcome.eq("evaluated")]
+    ev = pooled_rows(cfg.out / "joined")
+    if not ev.empty:
         for cut, g in ev.groupby("cutoff_min"):
             y = g.label_fail.astype(int).to_numpy()
             pm, pb = g.p_model.to_numpy(float), g.p_B3.to_numpy(float)

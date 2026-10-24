@@ -164,6 +164,26 @@ min_rows = 1
     assert (tmp_path / "out" / "summary.md").exists()
 
 
+def test_pooled_summary_reads_only_the_columns_it_needs(monitored, monkeypatch):
+    """The joined files hold every logged feature; the pooled table needs five columns.
+    Reading whole files made the daily job's memory grow with every monitored day."""
+    import nrw_connection_risk.monitoring.summary as summary
+    cfg, _, rep = monitored
+    (cfg.out / "daily").mkdir(parents=True, exist_ok=True)
+    (cfg.out / "daily" / f"service_day={DAY}.json").write_text(json.dumps(rep))
+    full = pd.read_parquet(cfg.out / "joined" / f"service_day={DAY}.parquet")
+    calls = []
+    real = summary.pd.read_parquet
+    monkeypatch.setattr(summary.pd, "read_parquet", lambda f, **kw: calls.append(kw.get("columns")) or real(f, **kw))
+    s = write_summary(cfg)
+    assert calls and all(c == summary.POOLED_COLUMNS for c in calls)
+    assert len(full.columns) > 2 * len(summary.POOLED_COLUMNS)
+    ev = full[full.outcome.eq("evaluated")]
+    for cut, g in ev.groupby("cutoff_min"):                     # same rows as reading the whole file
+        assert s["pooled"][str(int(cut))]["rows"] == len(g)
+    assert summary.pooled_rows(cfg.out / "nothing_here").empty
+
+
 # ---------------------------------------------------------------- skew, dashboard, API routes
 
 def test_day_constant_inputs_are_not_ranked_as_drift(monitored):
