@@ -40,12 +40,14 @@ def test_e07_config_tests_the_feeder_group_on_top_of_the_e06_result(tmp_path):
     assert (sc.first_day, sc.last_day, sc.min_train_days) == (D("2026-09-30"), D("2026-11-01"), 7)
     assert sc.add == ("feeder",) and sc.drop == () and sc.rule == e06.rule
     assert sc.reference_from == "config/features.toml" and sc.name == "e07"
+    # after e07 kept feeder, features.toml lists it; the reference is still the e06 result
+    assert sc.reference == ("db", "hub", "freshness", "context")
     assert sc.report == "exploration/out/e07_feeder_selection.md" and e06.name == "e06"
     # the reference follows whatever e06 wrote into features.toml
     (tmp_path / "config").mkdir()
     text = (ROOT / "config" / "features.toml").read_text(encoding="utf-8")
     (tmp_path / "config" / "features.toml").write_text(
-        text.replace('groups = ["db", "hub", "freshness", "context"]', 'groups = ["db", "hub", "trend"]'), encoding="utf-8")
+        text.replace('groups = ["db", "hub", "freshness", "context", "feeder"]', 'groups = ["db", "hub", "trend"]'), encoding="utf-8")
     assert load_selection_config(ROOT / "config" / "feature_selection_e07.toml", root=tmp_path).reference == \
         ("db", "hub", "trend")
 

@@ -51,7 +51,7 @@ def test_feature_columns_validate_groups():
 
 def test_config_file_loads():
     cfg = load_feature_config(Path(__file__).resolve().parents[1] / "config" / "features.toml")
-    assert cfg.groups == ("db", "hub", "freshness", "context")
+    assert cfg.groups == ("db", "hub", "freshness", "context", "feeder")      # e06, then e07
     assert date(2026, 10, 3) in cfg.holidays and cfg.grid_min == 5
 
 

@@ -53,7 +53,7 @@ def test_bundle_round_trip(bundle_dir, bundle, tmp_path):
     meta = json.loads((bundle_dir / "model.json").read_text())
     assert meta["model"] == "gbm" and meta["companion"] == "B3" and meta["note"] == "test"
     assert meta["cutoffs"] == [10, 30, 60] and meta["fit_days"]["count"] == 3
-    assert meta["feature_config"]["groups"] == ["db", "hub", "freshness", "context"]
+    assert meta["feature_config"]["groups"] == ["db", "hub", "freshness", "context", "feeder"]
     rows = pd.read_parquet(bundle_dir.parents[1] / "features" / "service_day=2026-09-24" / "part-0.parquet")
     p = bundle.predict(rows)
     assert set(p) == {"model", "B3"} and all(((v > 0) & (v < 1)).all() for v in p.values())
@@ -154,11 +154,15 @@ def test_live_features_equal_offline_features(tmp_path, bundle):
         assert live.p_model.between(0, 1).all() and live.p_B3.between(0, 1).all()
 
 
-def with_feeder_group(bundle):
-    """The same models, with a model card whose feature settings use the feeder group."""
+def with_groups(bundle, groups):
+    """The same models, with a model card whose feature settings (test feeders) use `groups`."""
     meta = json.loads(json.dumps(bundle.meta))
-    meta["feature_config"] = {**FEEDERS.as_dict(), "groups": ["db", "hub", "feeder"]}
+    meta["feature_config"] = {**FEEDERS.as_dict(), "groups": groups}
     return bundle_mod.Bundle(models=bundle.models, meta=meta)
+
+
+def with_feeder_group(bundle):
+    return with_groups(bundle, ["db", "hub", "feeder"])
 
 
 def test_live_feeder_features_equal_offline_features(tmp_path, bundle):
@@ -170,7 +174,8 @@ def test_live_feeder_features_equal_offline_features(tmp_path, bundle):
     fb = with_feeder_group(bundle)
     svc = Service(ServingConfig(parsed=parsed, raw=tmp_path / "raw", log_dir=tmp_path / "log"), CFG, fb)
     assert svc.stations == [KOELN, AACHEN]
-    plain = Service(ServingConfig(parsed=parsed, raw=tmp_path / "raw", log_dir=tmp_path / "log2"), CFG, bundle)
+    plain = Service(ServingConfig(parsed=parsed, raw=tmp_path / "raw", log_dir=tmp_path / "log2"), CFG,
+                    with_groups(bundle, ["db", "hub"]))
     assert plain.stations == [KOELN]
     for L in (60, 30, 10):
         off = offline[offline.cutoff_min == L]

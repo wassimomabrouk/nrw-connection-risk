@@ -82,12 +82,17 @@ class SelectionConfig:
 
 def load_selection_config(path: Path, root: Path = ROOT) -> SelectionConfig:
     """`[reference] groups = [...]`, or `[reference] from = "config/features.toml"` to take the
-    groups a previous selection wrote there (e07 builds on the e06 result)."""
+    groups a previous selection wrote there (e07 builds on the e06 result). With `from`, the
+    groups this run adds or tests from a restricted start are left out of the reference: the
+    reference is what was decided without them. So the run stays reproducible after its own
+    result has been written into that file (e07 keeps feeder: features.toml then lists it)."""
     with open(path, "rb") as f:
         c = tomllib.load(f)
     d, ref, out = c["data"], c["reference"], c.get("output", {})
     if "from" in ref:
-        groups, source = load_feature_config(root / ref["from"]).groups, ref["from"]
+        tested = set(c["candidates"]["add"]) | set(c.get("restricted", {}))
+        groups = [g for g in load_feature_config(root / ref["from"]).groups if g not in tested]
+        source = ref["from"]
     else:
         groups, source = ref["groups"], ""
     return SelectionConfig(

@@ -28,7 +28,7 @@ From the first collected day (2026-09-24; re-estimated on the full training peri
 | Live prediction API (FastAPI, Docker, CI) | running, stand-in model |
 | Daily live monitoring and dashboard (outcomes, drift, training/serving skew) | running |
 | Feature selection (e06), rule committed before the data existed | done: DB prognosis, hub state, freshness, context; trend and messages dropped |
-| Upstream feeder stations as features (e07) | data collected, decided early November |
+| Upstream feeder stations as features (e07), same pre-registered rule | done: kept (+0.7% log loss at 30 min), against the expectation written before the run |
 | Model selection on validation (9 to 22 November) | November |
 | Locked test (23 November to 12 December), evaluated once | December |
 | Robustness after the timetable change of 13 December | December |
