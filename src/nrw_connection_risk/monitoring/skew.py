@@ -4,9 +4,9 @@ For every logged prediction, the features are recomputed offline from the collec
 data exactly as it stood at the moment of scoring (`scored_at`), with the training
 pipeline's own code and data window, and compared with the features the API logged.
 They should be identical; the share of identical rows is monitored daily. Known,
-expected sources of small differences: the live service reads the last 6 hours while
-the offline builder reads from the day before (an event not updated for 6 hours), and
-a response that arrived within the same second as the scoring run.
+expected sources of small differences: a response that arrived within the same second as
+the scoring run, and messages (not a model input), which the service reads for the last
+6 hours only. Events older than that window keep their last state (serving.live).
 """
 from __future__ import annotations
 

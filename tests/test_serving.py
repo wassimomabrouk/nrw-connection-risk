@@ -24,7 +24,7 @@ from nrw_connection_risk.features.columns import ALL_FEATURES
 from nrw_connection_risk.features.config import FeatureConfig
 from nrw_connection_risk.serving.api import Service, build_service, create_app
 from nrw_connection_risk.serving.config import ServingConfig
-from nrw_connection_risk.serving.live import load_live, raw_tail
+from nrw_connection_risk.serving.live import carry_start, load_live, raw_tail
 from nrw_connection_risk.serving.predlog import PredictionLog
 from nrw_connection_risk.serving.score import score
 from nrw_connection_risk.training import bundle as bundle_mod
@@ -184,6 +184,50 @@ def test_live_feeder_features_equal_offline_features(tmp_path, bundle):
         pd.testing.assert_frame_equal(off.set_index(key)[ALL_FEATURES].sort_index(),
                                       live.set_index(key)[ALL_FEATURES].sort_index(), check_dtype=False)
         assert live.corridor_delay_a.notna().any()
+
+
+# DB reports B2's cancellation once, at 02:30 local, more than 6 hours before every cutoff,
+# and never repeats it (as on 2026-10-27, when four RE1 departures at Essen vanished from
+# the full-change feed hours before they were due). Training still knows it.
+EARLY_CANCEL = ("rchg", KOELN, utc("2026-09-24 00:30"), rchg('<s id="3-2609241038-1"><dp cs="c" clt="2609240230"/></s>'))
+
+
+def test_carry_start_is_where_training_starts_reading():
+    assert carry_start(T("2026-09-24 07:12")) == T("2026-09-23 02:00")     # 09:12 local, day 24 Sep
+    assert carry_start(T("2026-09-24 01:30")) == T("2026-09-22 02:00")     # 03:30 local: still 23 Sep
+    assert carry_start(T("2026-10-27 15:18")) == T("2026-10-26 03:00")     # winter time: 04:00 local = 03:00 UTC
+
+
+def test_live_keeps_a_cancellation_db_stopped_repeating(tmp_path, bundle):
+    parsed = write_parsed(tmp_path, scenario() + [EARLY_CANCEL])
+    df, meta = build_dataset_day(DAY, parsed, CFG)
+    offline, _ = build_feature_day(DAY, write_day(df, meta, tmp_path / "ds"), parsed, CFG.hubs, FeatureConfig())
+    key = ["stop_id_a", "stop_id_b"]
+    for L in (60, 30, 10):
+        off = offline[offline.cutoff_min == L]
+        now = off.t_cut.iloc[0]
+        assert off.set_index("stop_id_b").b_cancel_known["3-2609241038-1"]            # training knows it
+        live = score(load_live(parsed, tmp_path / "raw", now, 6, [KOELN], 2, carry_from=carry_start(now)),
+                     bundle, CFG, 2, 65, 45)
+        pd.testing.assert_frame_equal(off.set_index(key)[ALL_FEATURES].sort_index(),
+                                      live.set_index(key)[ALL_FEATURES].sort_index(), check_dtype=False)
+        # the old 6-hour window alone loses it
+        short = score(load_live(parsed, tmp_path / "raw", now, 6, [KOELN], 2), bundle, CFG, 2, 65, 45)
+        assert not short.set_index("stop_id_b").b_cancel_known["3-2609241038-1"]
+    # the service uses the carried state
+    svc = Service(ServingConfig(parsed=parsed, raw=tmp_path / "raw", log_dir=tmp_path / "log"), CFG, bundle)
+    svc.run_once(T("2026-09-24 07:12"))
+    assert svc.last_error is None and svc.scores.set_index("stop_id_b").b_cancel_known["3-2609241038-1"]
+
+
+def test_carried_state_never_hides_a_newer_report(tmp_path, bundle):
+    """A later report inside the 6-hour window (B2 running again) wins over the carried one."""
+    revoked = ("rchg", KOELN, utc("2026-09-24 06:50"), rchg('<s id="3-2609241038-1"><dp cs="p"/></s>'))
+    parsed = write_parsed(tmp_path, scenario() + [EARLY_CANCEL, revoked])
+    now = T("2026-09-24 07:12")
+    live = score(load_live(parsed, tmp_path / "raw", now, 6, [KOELN], 2, carry_from=carry_start(now)),
+                 bundle, CFG, 2, 65, 45)
+    assert not live.set_index("stop_id_b").b_cancel_known["3-2609241038-1"]
 
 
 def test_rows_that_cannot_be_scored(tmp_path, bundle):

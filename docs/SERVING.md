@@ -8,6 +8,7 @@ A FastAPI service that scores every upcoming transfer candidate at the five hubs
 collector (systemd)                          API container
   raw/     every response, written at once ──┐
   parsed/  Parquet, flushed every 10 min ────┼─> live window (last 6 h, up to now)
+                                             │      + last state of older events (from the day before)
                                              │      candidates arriving in 2-65 min
                                              │      point-in-time state + features   (same code as training)
                                              │      P(fail): model and B3            (model bundle)
@@ -17,6 +18,7 @@ collector (systemd)                          API container
 
 - **Fresh data.** The collector writes each API response to the raw layer immediately but flushes parsed Parquet only every 10 minutes. The service reads the parsed layer plus the raw responses from 20 minutes before its last flush onwards, parsed with the production parser, so predictions use data that is at most a minute old. The overlap also covers rows the parsed layer lacks (a flush in progress, a collector restart before flushing); rows read twice change nothing. Damaged raw records are skipped, never fatal. Only the partitions of the needed days are opened, so a scoring run does not slow down as the collection grows.
 - **No training/serving skew.** A live row is built exactly like a dataset row with cutoff = now: the same candidate rules (T1 to T7), the same point-in-time state, the same feature functions with the feature settings stored in the model bundle. `tests/test_serving.py` checks that the features computed live at each cutoff moment equal those of the offline dataset and feature builders.
+- **Same history as training.** Training reads from the start of the day before; reading that much every minute would be slow, so the service reads every row of the last 6 hours plus only the **last observation of each event** collected between the start of the day before and that window. An event's state depends on older rows only through that one, so the states are the same as training's. This matters when DB stops repeating a report: on 2026-10-27 four cancelled RE1 departures at Essen vanished from the full change list hours before they were due, and with a 6-hour window alone the service treated them as running once the last report aged out (found by the daily skew check: 96.6% identical rows that day). A test reproduces it.
 - **Which stations.** The hubs, plus the 12 feeder stations only if the loaded model uses the feeder group (its model card's feature settings decide), so a model without it costs no extra reading.
 - **Which model.** The bundle holds one model per trained cutoff (60, 30, 10 minutes). A connection is scored with the model of the cutoff nearest to the time left until arrival.
 - **Not scored** (as in the dataset): A already cancelled, no data at the hub for more than 45 minutes, times in the DST transition hour. Listed with `include_unscored=true`.
@@ -86,5 +88,5 @@ The port is bound to localhost on the server. From your PC: `ssh -i KEY -L 8000:
 
 - The candidate set uses the timetable known now; a train added to the timetable later can change which departures count as first reach (T7) in the offline data.
 - Scoring runs every minute, so a prediction may be up to a minute older than the moment it is served.
-- The live window covers the last 6 hours, the offline builder reads from the day before. They differ only for an event whose last update is more than 6 hours old, which the full change list (fetched every 30 minutes) makes rare.
+- In the hour before 04:00 local, a few candidates already belong to the next service day, for which training reads from a day later; the service may then know an observation older than training does for them (an event reported more than a day before it is due and never again). Messages (not used by the model) still come from the last 6 hours only.
 - The service runs on the same small server as the collector (1 OCPU); `/health` reports the scoring time.

@@ -68,6 +68,42 @@ def _connect(parsed_root: Path, extra: pa.Table | None = None,
     return con, file_list
 
 
+OBS_COLUMNS = ["key", "eva", "obs", "ct", "ct_raw", "cs"]
+
+
+def latest_obs(parsed_root: Path, t_from: pd.Timestamp, t_to: pd.Timestamp, min_parser_version: int,
+               stations: list[str] | None = None) -> pd.DataFrame:
+    """The last realtime observation of each event collected in [t_from, t_to) (naive UTC),
+    in the columns of Window.obs. An event's state at any time >= t_to depends on earlier
+    rows only through this one, so a short window plus this table gives the same states as
+    the long window (live serving: training reads from the day before, see load_live)."""
+    empty = pd.DataFrame(columns=OBS_COLUMNS)
+    if t_to <= t_from:
+        return empty
+    dates = window_dates(t_from, t_to)
+    if not _partition_globs(parsed_root, dates):
+        return empty
+    con, _ = _connect(parsed_root, None, dates)
+    only = "" if stations is None else "AND eva IN (" + ", ".join(f"'{e}'" for e in stations) + ")"
+    try:
+        df = con.execute(f"""
+            SELECT stop_id || '|' || event AS key, eva, collected_at AS obs, ct, ct_raw, cs
+            FROM parsed
+            WHERE CAST(date AS DATE) BETWEEN DATE '{t_from.date().isoformat()}' AND DATE '{t_to.date().isoformat()}'
+              AND collected_at >= TIMESTAMPTZ '{t_from.isoformat()}+00:00'
+              AND collected_at < TIMESTAMPTZ '{t_to.isoformat()}+00:00' {only}
+              AND source IN ('fchg', 'rchg') AND event IN ('ar', 'dp') AND (ct IS NOT NULL OR cs IS NOT NULL)
+              AND parser_version >= {min_parser_version}
+            QUALIFY row_number() OVER (PARTITION BY stop_id, event ORDER BY collected_at DESC) = 1""").df()
+    except duckdb.BinderException as e:
+        raise ParsedLayerError(f"parsed files without parser_version: rebuild them ({e})") from e
+    finally:
+        con.close()
+    for c in ("obs", "ct"):
+        df[c] = to_naive_utc(df[c]) if len(df) else pd.Series(dtype="datetime64[ns]")
+    return df[OBS_COLUMNS].sort_values("obs", kind="stable").reset_index(drop=True)
+
+
 def load_window(parsed_root: Path, t_from: pd.Timestamp, t_to: pd.Timestamp,
                 min_parser_version: int, stations: list[str] | None = None,
                 extra: pa.Table | None = None) -> Window:

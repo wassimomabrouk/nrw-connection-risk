@@ -29,7 +29,7 @@ from ..features.config import FeatureConfig
 from ..training.bundle import COMPANION, Bundle, dataset_mismatch, latest_bundle, load_bundle
 from ..monitoring.dashboard import render as render_dashboard
 from .config import ServingConfig, load_serving_config
-from .live import load_live
+from .live import carry_start, load_live
 from .predlog import PredictionLog
 from .score import score
 
@@ -77,7 +77,8 @@ class Service:
         t0 = time.monotonic()
         try:
             snap = load_live(self.scfg.parsed, self.scfg.raw, now, self.scfg.lookback_h, self.stations,
-                             self.dcfg.min_parser_version)
+                             self.dcfg.min_parser_version,
+                             carry_from=carry_start(now, self.dcfg.start_hour_local))
             scores = score(snap, self.bundle, self.dcfg, self.scfg.min_minutes_ahead, self.scfg.max_minutes_ahead,
                            self.scfg.max_collector_gap_min)
             logged = self.predlog.add(scores, now) if len(scores) else 0

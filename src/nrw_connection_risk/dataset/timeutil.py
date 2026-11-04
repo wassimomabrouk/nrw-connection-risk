@@ -17,6 +17,13 @@ def service_day_bounds(day: date, start_hour: int = 4) -> tuple[pd.Timestamp, pd
             pd.Timestamp(t1.astimezone(timezone.utc)).tz_localize(None))
 
 
+def service_day_of(t: pd.Timestamp, start_hour: int = 4) -> date:
+    """The service day a moment (naive UTC) belongs to: before start_hour local time it is
+    still the previous day's."""
+    local = pd.Timestamp(t).tz_localize("UTC").tz_convert(BERLIN)
+    return local.date() - timedelta(days=1) if local.hour < start_hour else local.date()
+
+
 def is_ambiguous_local(raw) -> bool:
     """True if a yyMMddHHmm local time falls into the repeated autumn hour or the
     skipped spring hour, where it cannot be converted to UTC unambiguously."""

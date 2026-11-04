@@ -17,7 +17,8 @@ import pandas as pd
 import pyarrow as pa
 
 from ..collector.parse import SCHEMA, parse_timetable
-from ..dataset.load import _partition_globs, load_window
+from ..dataset.load import _partition_globs, latest_obs, load_window
+from ..dataset.timeutil import service_day_bounds, service_day_of
 from ..features.load import load_messages
 
 SOURCES = ("plan", "fchg", "rchg")
@@ -112,9 +113,22 @@ def raw_tail(raw_root: Path, after: datetime, until: datetime, stations: set[str
     return table.append_column("date", pa.array(dates, type=pa.date32()))
 
 
+def carry_start(now: pd.Timestamp, start_hour: int = 4) -> pd.Timestamp:
+    """Where training starts reading for the service day of `now`: the start of the day
+    before (features.build reads from t0 - 1 day). Live reads from here too, so it knows
+    every state training knows."""
+    return service_day_bounds(service_day_of(now, start_hour), start_hour)[0] - pd.Timedelta(days=1)
+
+
 def load_live(parsed_root: Path, raw_root: Path, now: pd.Timestamp, lookback_h: float, stations: list[str],
-              min_parser_version: int, raw_overlap_min: float = 20) -> LiveSnapshot:
+              min_parser_version: int, raw_overlap_min: float = 20,
+              carry_from: pd.Timestamp | None = None) -> LiveSnapshot:
     """Everything collected at the hubs in the last `lookback_h` hours up to `now` (naive UTC).
+
+    With `carry_from`, the last observation of every event collected between carry_from and
+    the start of that window is added. Training reads from the day before, so an event whose
+    last report is older than the window (DB stopped repeating a cancellation, seen on
+    2026-10-27) keeps the state training gives it; without it, live would treat it as running.
 
     The raw tail starts `raw_overlap_min` before the parsed layer's latest row, not at it:
     rows the parsed layer lacks (a flush in progress, rows lost when the collector was
@@ -128,6 +142,11 @@ def load_live(parsed_root: Path, raw_root: Path, now: pd.Timestamp, lookback_h: 
     tail = raw_tail(raw_root, after, now_utc, set(stations))
     w = load_window(parsed_root, t_from, now, min_parser_version, stations=stations, extra=tail)
     ev, st = load_messages(parsed_root, t_from, now, stations, extra=tail)
-    obs = w.obs.drop_duplicates(["key", "obs", "ct", "cs"]).reset_index(drop=True)   # rows read twice (overlap)
+    obs = w.obs
+    if carry_from is not None and carry_from < t_from:
+        carried = latest_obs(parsed_root, carry_from, t_from, min_parser_version, stations)
+        if len(carried):
+            obs = pd.concat([carried, obs], ignore_index=True)    # all older than the window: order stays
+    obs = obs.drop_duplicates(["key", "obs", "ct", "cs"]).reset_index(drop=True)   # rows read twice (overlap)
     return LiveSnapshot(plan=w.plan, obs=obs, event_msgs=ev, stop_msgs=st, polls=w.polls, now=now,
                         data_as_of=w.polls.t.max() if len(w.polls) else None, unflushed_rows=tail.num_rows)

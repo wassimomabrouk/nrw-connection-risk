@@ -93,7 +93,7 @@ src/nrw_connection_risk/
     serving/                     live scoring every minute and the FastAPI service
     monitoring/                  daily live evaluation against observed outcomes, drift (PSI), skew check, dashboard
 tests/                           unit and integration tests (pytest)
-tools/                           API smoke test, collection status, raw-to-parsed rebuild, feeder selection
+tools/                           API smoke test, collection status, raw-to-parsed rebuild, feeder selection, live scoring benchmark
 deploy/                          systemd units for the collector, the daily backup and the daily monitoring
 Dockerfile, compose.yml          container for the API
 .github/workflows/ci.yml         tests on Python 3.11 and 3.14, image build and smoke test

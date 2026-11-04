@@ -4,7 +4,7 @@
 [data]
 parsed = "data/collector/parsed"   # the collector's parsed layer
 raw = "data/collector/raw"         # the collector's raw layer: responses not flushed yet are read from here
-lookback_h = 6                     # data window per scoring run
+lookback_h = 6                     # every row of the last 6 h; older events only by their last state (from the day before)
 
 [scoring]
 interval_s = 60                    # score all upcoming connections every minute
