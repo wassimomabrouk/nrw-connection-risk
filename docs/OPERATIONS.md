@@ -71,6 +71,7 @@ ssh -i KEY ubuntu@HOST "systemctl list-timers nrw-monitor.timer --no-pager"     
 | `nrw-collector` alert email | Server stopped (for example Oracle idle reclamation), crash loop, or API outage | Check the instance state in the Oracle console and start it if stopped. Otherwise read `journalctl`. An API outage resolves itself; the collector retries every cycle |
 | `nrw-backup` alert email | Google token revoked or expired, Drive full, network | Run `sudo systemctl start nrw-backup.service` and read `journalctl -u nrw-backup`. If the token is invalid, run `rclone config reconnect gdrive:` on a machine with a browser and copy `rclone.conf` to the server again |
 | Rising `failure_count` in the heartbeat | DB API errors or rate limiting | The client retries with backoff and stays at 50 of the allowed 60 calls per minute. Persistent HTTP 401 or 403 means the API key or subscription is invalid |
+| `parse errors` in the rebuild summary | DB occasionally answers with an empty body | Nothing to do: the raw response is kept and skipped by the parser. On 24 September to 3 November, 15 of 709,668 responses, all recent-change calls with an empty body, in short bursts across stations (an API hiccup); the next recent-change call a minute later and the full change list every 30 minutes cover the gap |
 
 ## Restore
 

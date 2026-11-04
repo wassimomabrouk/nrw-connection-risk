@@ -68,6 +68,8 @@ Rows are kept with `eligible = false` and a reason, so every exclusion can be co
 - Candidates carry equal weight; there are no passenger volumes (DESIGN.md section 1).
 - The candidate set uses the latest timetable version. A timetable change between the cutoff and the event can alter which departures count as candidates; trains added after the cutoff are excluded by `not_known_at_cutoff`.
 - Rule T7 judges departures at the same minute together: each is kept if it reaches a station that no earlier departure reaches. The exploration script processed them in row order, which could drop one of two equally early trains depending on file order. The builder's rule is order-independent and keeps a superset.
+- `unobserved` rows are not a random sample. Checked on 1 October to 1 November (30-minute cutoff): 0 to 1.2% of rows per day, caused by 0 to 7 trains a day on normal days, mostly operators outside DB's realtime system (Flixtrain FLX 30, the cross-border RE18 Aachen–Maastricht) and a few runs that never get realtime data (one RE22 arrival at Köln at 08:39, every weekday). From 19 to 28 October dozens of National Express trains a day at Essen (RE6, RE1) had a timetable but no realtime update at all, during the construction period there; from 29 October none. The results therefore describe connections for which DB provides realtime data. The exclusion applies to the model and to B3 alike.
+- When DB stops reporting an event, its last report stands (`final_state`): a cancellation that DB stops repeating stays a cancellation. Seen on 27 October for four RE1 departures at Essen whose runs ended there (docs/SERVING.md); the live service keeps the same last state.
 
 ## Reproducing the exploration
 
