@@ -29,7 +29,7 @@ collector (systemd)                          API container
 python -m nrw_connection_risk.training.fit_bundle --model gbm --note "stand-in"
 ```
 
-Fits the chosen model and B3 on all built training days (never test or robustness days) and writes `models/<id>/bundle.joblib` and `models/<id>/model.json` (model card: fit days, features, settings, code commit, library versions). The API loads the newest bundle, or the one named in `config/serving.toml`. A bundle only loads with the scikit-learn minor version it was saved with, and only if the service's dataset settings (hubs, minimum transfer time, maximum slack, builder version) equal those in its model card. Otherwise the service keeps running without predictions and reports the reason in `/health` (HTTP 503) instead of crashing.
+Fits the chosen model and B3 on all built training days (never test or robustness days; `--first-day` starts later, e.g. on 2026-09-30, the first day with feeder data, as e07 evaluated the feeder group) and writes `models/<id>/bundle.joblib` and `models/<id>/model.json` (model card: fit days, features, settings, code commit, library versions). The API loads the newest bundle, or the one named in `config/serving.toml`. A bundle only loads with the scikit-learn minor version it was saved with, and only if the service's dataset settings (hubs, minimum transfer time, maximum slack, builder version) equal those in its model card. Otherwise the service keeps running without predictions and reports the reason in `/health` (HTTP 503) instead of crashing.
 
 Until validation (November) the deployed bundle is a **stand-in** fitted on the days available; it shows the system working, not the final model.
 

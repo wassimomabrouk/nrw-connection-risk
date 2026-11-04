@@ -3,6 +3,7 @@
 Run from the repo root:
     python -m nrw_connection_risk.training.fit_bundle --model gbm --note "stand-in"
     python -m nrw_connection_risk.training.fit_bundle --model lr --period train+validation   # final refit
+    python -m nrw_connection_risk.training.fit_bundle --first-day 2026-09-30   # from the first day with feeder data
 
 The model choice itself is made on validation (DESIGN.md section 4); this command only
 fits and packages it. Test and robustness days can never be used.
@@ -12,7 +13,7 @@ from __future__ import annotations
 import argparse
 import sys
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from ..dataset.build import _git_commit
@@ -39,6 +40,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dataset-config", type=Path, default=ROOT / "config" / "dataset.toml")
     ap.add_argument("--out", type=Path, default=ROOT / "models")
     ap.add_argument("--note", default="", help="free text stored in the model card")
+    ap.add_argument("--first-day", type=date.fromisoformat, default=None,
+                    help="fit only on days from here, e.g. the first day a feature group has data")
     args = ap.parse_args(argv)
 
     cfg = load_training_config(args.config)
@@ -50,6 +53,8 @@ def main(argv: list[str] | None = None) -> int:
     days = days_in("train", avail, cfg.splits)
     if args.period == "train+validation":
         days += days_in("validation", avail, cfg.splits)
+    if args.first_day:
+        days = [d for d in days if d >= args.first_day]
     if not days:
         raise SystemExit(f"no built feature days for period {args.period} under {features_root}")
     rows = load_rows(features_root, days, cfg.splits)
@@ -61,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     meta = {
         "model_id": new_model_id(args.model), "model": args.model, "companion": COMPANION,
         "note": args.note, "period": args.period,
+        "first_day": str(args.first_day) if args.first_day else None,
         "fit_days": {"first": str(days[0]), "last": str(days[-1]), "count": len(days)}, "rows": len(rows),
         "cutoffs": sorted(int(c) for c in rows.cutoff_min.unique()),
         "feature_version": fcfg.feature_version, "feature_groups": list(fcfg.groups), "feature_columns": cols,

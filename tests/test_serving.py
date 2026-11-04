@@ -67,6 +67,17 @@ def test_bundle_refuses_other_sklearn_version(bundle_dir, monkeypatch):
         load_bundle(bundle_dir)
 
 
+def test_fit_bundle_from_a_first_day(tmp_path):
+    """e.g. from the first day with feeder data, as e07 evaluated the feeder group."""
+    write_days(tmp_path / "f", date(2026, 9, 24), 3, 1500)
+    fit_bundle(["--features", str(tmp_path / "f"), "--out", str(tmp_path / "m"), "--first-day", "2026-09-25"])
+    meta = json.loads((latest_bundle(tmp_path / "m") / "model.json").read_text())
+    assert meta["fit_days"] == {"first": "2026-09-25", "last": "2026-09-26", "count": 2}
+    assert meta["first_day"] == "2026-09-25"
+    with pytest.raises(SystemExit, match="no built feature days"):
+        fit_bundle(["--features", str(tmp_path / "f"), "--out", str(tmp_path / "m"), "--first-day", "2026-10-01"])
+
+
 def test_fit_bundle_never_reads_locked_days(tmp_path):
     write_days(tmp_path / "f", date(2026, 11, 23), 2, 100)        # test period only
     with pytest.raises(SystemExit, match="no built feature days"):
