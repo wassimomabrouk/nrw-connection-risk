@@ -1,0 +1,30 @@
+# Phase 9: tuning, rule pre-registered in DESIGN.md section 4 and committed before the run.
+# Each model class (gbm, its benchmark B3, lr) is tuned on its own with the same budget.
+# Run once the training period is built (data complete from 10 November):
+#   python -m nrw_connection_risk.training.tuning
+
+[output]
+name = "e08"
+report = "exploration/out/e08_tuning.md"
+
+[data]
+first_day = "2026-09-30"          # first day with feeder data (first_fit_day in config/training.toml)
+last_day = "2026-11-08"           # end of the training period
+min_train_days = 14               # DESIGN.md section 6: first evaluation after 14 days,
+fold_days = 7                     # then weekly blocks: 14-20 Oct, 21-27 Oct, 28 Oct-3 Nov, 4-8 Nov
+
+[grid]
+windows = [0, 21, 14]             # days of history each fit uses (0 = every day since first_day)
+
+[grid.gbm]                        # gradient boosting: for gbm and for B3, each tuned separately
+max_leaf_nodes = [15, 31, 63]
+min_samples_leaf = [100, 1000]    # learning rate 0.05 and early stopping stay as configured
+
+[grid.lr]
+C = [0.1, 1.0, 10.0]
+
+[rule]
+primary_cutoff = 30
+min_gain = 0.002                  # beat the current settings by at least 0.2% log loss ...
+noise_multiple = 2.0              # ... and by 2x the change from refitting them with another seed
+max_loss_other = 0.002            # at 60 and 10 min, at most this much worse (never below their noise)

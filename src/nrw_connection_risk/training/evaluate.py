@@ -27,7 +27,7 @@ from .config import MODELS, Splits, TrainingConfig, load_training_config
 from .metrics import bootstrap_vs, precision_recall_at, recall_at_precision, reliability, scores
 from .models import make_model
 from .report import write_report
-from .splits import days_in, guard, rolling_origin
+from .splits import days_in, fit_days_for, guard, rolling_origin
 
 ROOT = Path(__file__).resolve().parents[3]
 KEY_COLS = ["service_day", "cutoff_min", "eva", "hub", "stop_id_a", "stop_id_b", "segment_a", "segment_b",
@@ -55,17 +55,21 @@ def load_rows(features_root: Path, days: list[date], splits: Splits,
 
 def predict_folds(rows: pd.DataFrame, folds: list[tuple[list[date], list[date]]], cfg: TrainingConfig,
                   model_features: list[str], log=print) -> pd.DataFrame:
-    """Out-of-sample predictions of every model: each fold fits on its fit days only."""
+    """Out-of-sample predictions of every model: each fold fits on its fit days only, from
+    cfg.first_fit_day and within the model's fit window."""
     out = []
     for i, (fit_days, eval_days) in enumerate(folds):
-        fit = rows[rows.service_day.isin(fit_days)].reset_index(drop=True)
         ev = rows[rows.service_day.isin(eval_days)].reset_index(drop=True)
         pred = ev[KEY_COLS].copy()
         pred["fold"] = i
         for name in cfg.run:
+            days = fit_days_for(fit_days, cfg.first_fit_day, cfg.window(name))
+            fit = rows[rows.service_day.isin(days)].reset_index(drop=True)
             pred[f"p_{name}"] = make_model(name, cfg, model_features).fit(fit).predict(ev)
+        all_days = fit_days_for(fit_days, cfg.first_fit_day)
+        fit = rows[rows.service_day.isin(all_days)]
         out.append(pred)
-        log(f"fold {i + 1}/{len(folds)}: fit {len(fit_days)} day(s), {len(fit):,} rows -> "
+        log(f"fold {i + 1}/{len(folds)}: fit up to {len(all_days)} day(s), {len(fit):,} rows -> "
             f"evaluate {', '.join(map(str, eval_days))} ({len(ev):,} rows)")
     return pd.concat(out, ignore_index=True)
 
@@ -203,6 +207,8 @@ def main(argv: list[str] | None = None) -> int:
     s = cfg.splits
     train, val = days_in("train", avail, s), days_in("validation", avail, s)
     unlocked: frozenset[str] = frozenset()
+    if cfg.first_fit_day:
+        train = [d for d in train if d >= cfg.first_fit_day]
     if args.mode == "cv":
         folds = rolling_origin(train, cfg.min_train_days, cfg.fold_days)
         if not folds:

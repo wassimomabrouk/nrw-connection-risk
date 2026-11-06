@@ -199,7 +199,7 @@ def test_future_labels_do_not_reach_the_past(tmp_path):
 @pytest.fixture(scope="module")
 def cv_run(tmp_path_factory):
     tmp = tmp_path_factory.mktemp("cv")
-    write_days(tmp / "features", D("2026-09-24"), 12, 2500)
+    write_days(tmp / "features", D("2026-09-30"), 12, 2500)        # from first_fit_day in config/training.toml
     main(["--features", str(tmp / "features"), "--out", str(tmp / "runs"), "--min-train-days", "7",
           "--fold-days", "1"])
     return next((tmp / "runs").iterdir())

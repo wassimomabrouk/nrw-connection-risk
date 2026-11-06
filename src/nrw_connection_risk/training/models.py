@@ -240,7 +240,7 @@ def make_model(name: str, cfg: TrainingConfig, model_features: list[str]) -> Mod
             return HistoryRate(cfg.slack_buckets, cfg.smoothing)
         if name in ("B0", "B3-lin", "lr"):
             return LogReg(cols, **cfg.lr)
-        return GBM(cols, seed=cfg.seed, **cfg.gbm)
+        return GBM(cols, seed=cfg.seed, **({**cfg.gbm, **cfg.b3} if name == "B3" else cfg.gbm))
 
     def calibrated() -> Model:
         if cfg.calibration == "none" or name == "B1":      # B1 is a rate, calibrated by construction

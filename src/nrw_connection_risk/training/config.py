@@ -31,6 +31,9 @@ class TrainingConfig:
     gbm: dict = field(default_factory=lambda: {
         "learning_rate": 0.05, "max_iter": 500, "max_leaf_nodes": 31, "min_samples_leaf": 100,
         "l2_regularization": 1.0, "validation_fraction": 0.15, "n_iter_no_change": 20})
+    b3: dict = field(default_factory=dict)           # B3's own GBM settings where tuning chose differently
+    first_fit_day: date | None = None                # fit only on days from here (first day with all features)
+    fit_window: dict = field(default_factory=dict)   # model -> days of history it is fit on (0 or absent: all)
     slack_buckets: tuple[int, ...] = (4, 6, 8, 10, 15, 20, 31)
     smoothing: float = 20.0
     primary_cutoff: int = 30
@@ -51,9 +54,17 @@ class TrainingConfig:
             raise ValueError("cutoff_mode must be 'separate' or 'feature'")
         if self.calibration not in ("none", "platt", "isotonic"):
             raise ValueError("calibration must be 'none', 'platt' or 'isotonic'")
+        bad = {k: v for k, v in self.fit_window.items() if k not in BASELINES + MODELS or int(v) < 0}
+        if bad:
+            raise ValueError(f"fit_window needs known models and days >= 0: {bad}")
+
+    def window(self, model: str) -> int:
+        """Days of history `model` is fit on; 0 = every day from first_fit_day."""
+        return int(self.fit_window.get(model, 0))
 
     def as_dict(self) -> dict:
         d = {k: v for k, v in self.__dict__.items() if k != "splits"}
+        d["first_fit_day"] = self.first_fit_day.isoformat() if self.first_fit_day else None
         s = self.splits
         d["splits"] = {"train": [x.isoformat() for x in s.train],
                        "validation": [x.isoformat() for x in s.validation],
@@ -72,7 +83,9 @@ def load_training_config(path: Path) -> TrainingConfig:
         min_train_days=int(c["cv"]["min_train_days"]), fold_days=int(c["cv"]["fold_days"]),
         run=tuple(m["run"]), cutoff_mode=m["cutoff_mode"], calibration=m["calibration"],
         calibration_folds=int(m["calibration_folds"]),
-        lr=dict(c["lr"]), gbm=dict(c["gbm"]),
+        lr=dict(c["lr"]), gbm=dict(c["gbm"]), b3=dict(c.get("b3", {})),
+        first_fit_day=date.fromisoformat(m["first_fit_day"]) if m.get("first_fit_day") else None,
+        fit_window={k: int(v) for k, v in c.get("fit_window", {}).items()},
         slack_buckets=tuple(int(x) for x in c["history"]["slack_buckets"]),
         smoothing=float(c["history"]["smoothing"]),
         primary_cutoff=int(e["primary_cutoff"]), headline_baseline=e["headline_baseline"],

@@ -24,7 +24,7 @@ from .bundle import COMPANION, Bundle, new_model_id, save_bundle, versions
 from .config import MODELS, load_training_config
 from .evaluate import available_days, load_rows
 from .models import make_model
-from .splits import days_in
+from .splits import days_in, fit_days_for
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out", type=Path, default=ROOT / "models")
     ap.add_argument("--note", default="", help="free text stored in the model card")
     ap.add_argument("--first-day", type=date.fromisoformat, default=None,
-                    help="fit only on days from here, e.g. the first day a feature group has data")
+                    help="fit only on days from here (default: first_fit_day in config/training.toml)")
     args = ap.parse_args(argv)
 
     cfg = load_training_config(args.config)
@@ -53,21 +53,27 @@ def main(argv: list[str] | None = None) -> int:
     days = days_in("train", avail, cfg.splits)
     if args.period == "train+validation":
         days += days_in("validation", avail, cfg.splits)
-    if args.first_day:
-        days = [d for d in days if d >= args.first_day]
+    first_day = args.first_day or cfg.first_fit_day
+    days = fit_days_for(days, first_day)
     if not days:
         raise SystemExit(f"no built feature days for period {args.period} under {features_root}")
     rows = load_rows(features_root, days, cfg.splits)
 
     cols = fcfg.columns()
-    print(f"fitting {args.model} and {COMPANION} on {len(days)} day(s) ({days[0]} to {days[-1]}), {len(rows):,} rows")
-    models = {"model": make_model(args.model, cfg, cols).fit(rows),
-              COMPANION: make_model(COMPANION, cfg, cols).fit(rows)}
+    models, fit_info = {}, {}
+    for key, name in (("model", args.model), (COMPANION, COMPANION)):
+        own = fit_days_for(days, None, cfg.window(name))        # the model's fit window (tuning)
+        part = rows[rows.service_day.isin(own)]
+        print(f"fitting {name} on {len(own)} day(s) ({own[0]} to {own[-1]}), {len(part):,} rows")
+        models[key] = make_model(name, cfg, cols).fit(part)
+        fit_info[key] = {"first": str(own[0]), "last": str(own[-1]), "count": len(own), "rows": len(part)}
+    rows = rows[rows.service_day.isin(fit_days_for(days, None, cfg.window(args.model)))]
     meta = {
         "model_id": new_model_id(args.model), "model": args.model, "companion": COMPANION,
         "note": args.note, "period": args.period,
-        "first_day": str(args.first_day) if args.first_day else None,
-        "fit_days": {"first": str(days[0]), "last": str(days[-1]), "count": len(days)}, "rows": len(rows),
+        "first_day": str(first_day) if first_day else None, "fit_window": dict(cfg.fit_window),
+        "fit_days_by_model": fit_info,
+        "fit_days": {k: v for k, v in fit_info["model"].items() if k != "rows"}, "rows": len(rows),
         "cutoffs": sorted(int(c) for c in rows.cutoff_min.unique()),
         "feature_version": fcfg.feature_version, "feature_groups": list(fcfg.groups), "feature_columns": cols,
         "cutoff_mode": cfg.cutoff_mode, "calibration": cfg.calibration,

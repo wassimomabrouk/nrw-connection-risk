@@ -53,7 +53,7 @@ def test_profile_counts_missing_values_as_their_own_bin():
 def monitored(tmp_path_factory):
     """The scenario day served live at its three cutoffs, then monitored."""
     tmp = tmp_path_factory.mktemp("mon")
-    write_days(tmp / "features", date(2026, 9, 24), 3, 1500)
+    write_days(tmp / "features", date(2026, 10, 2), 3, 1500)       # Fri-Sun, after first_fit_day: a mix of day types
     fit_bundle(["--features", str(tmp / "features"), "--out", str(tmp / "models")])
     bundle = load_bundle(latest_bundle(tmp / "models"))
     parsed = write_parsed(tmp, scenario())

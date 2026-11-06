@@ -37,7 +37,7 @@ T = pd.Timestamp
 @pytest.fixture(scope="module")
 def bundle_dir(tmp_path_factory):
     tmp = tmp_path_factory.mktemp("bundle")
-    write_days(tmp / "features", date(2026, 9, 24), 3, 1500)
+    write_days(tmp / "features", date(2026, 9, 30), 3, 1500)       # from first_fit_day in config/training.toml
     fit_bundle(["--features", str(tmp / "features"), "--out", str(tmp / "models"), "--note", "test"])
     return latest_bundle(tmp / "models")
 
@@ -54,7 +54,7 @@ def test_bundle_round_trip(bundle_dir, bundle, tmp_path):
     assert meta["model"] == "gbm" and meta["companion"] == "B3" and meta["note"] == "test"
     assert meta["cutoffs"] == [10, 30, 60] and meta["fit_days"]["count"] == 3
     assert meta["feature_config"]["groups"] == ["db", "hub", "freshness", "context", "feeder"]
-    rows = pd.read_parquet(bundle_dir.parents[1] / "features" / "service_day=2026-09-24" / "part-0.parquet")
+    rows = pd.read_parquet(bundle_dir.parents[1] / "features" / "service_day=2026-09-30" / "part-0.parquet")
     p = bundle.predict(rows)
     assert set(p) == {"model", "B3"} and all(((v > 0) & (v < 1)).all() for v in p.values())
     np.testing.assert_array_equal(load_bundle(bundle_dir).predict(rows)["model"], p["model"])

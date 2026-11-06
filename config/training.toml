@@ -16,6 +16,12 @@ run = ["B0", "B1", "B2", "B3-lin", "B3", "lr", "gbm"]   # baselines first; lr be
 cutoff_mode = "separate"          # "separate": one model per cutoff; "feature": cutoff as an input
 calibration = "none"              # "none", "platt" or "isotonic" (chosen on validation)
 calibration_folds = 5             # day blocks for the out-of-fold predictions the calibrator is fit on
+first_fit_day = "2026-09-30"      # models are fit on days from here: the first day with feeder data (e07)
+
+[fit_window]                      # days of history each model is fit on (0 = every day from first_fit_day);
+gbm = 0                           # tuned in phase 9 (config/tuning.toml, DESIGN.md section 4)
+B3 = 0
+lr = 0
 
 [lr]
 C = 1.0
@@ -29,6 +35,9 @@ min_samples_leaf = 100
 l2_regularization = 1.0
 validation_fraction = 0.15        # early stopping
 n_iter_no_change = 20
+
+[b3]                              # B3's own gradient-boosting settings where tuning chose differently
+                                  # from [gbm] (empty: the same as [gbm])
 
 [history]                         # B1: failure rate per hub, segment pair and slack bucket
 slack_buckets = [4, 6, 8, 10, 15, 20, 31]

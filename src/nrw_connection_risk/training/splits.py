@@ -34,6 +34,15 @@ def days_in(period: str, available: list[date], s: Splits) -> list[date]:
     return sorted(d for d in available if period_of(d, s) == period)
 
 
+def fit_days_for(fit_days: list[date], first_day: date | None = None, window: int = 0) -> list[date]:
+    """The days a model is fit on: from `first_day`, and only the last `window` calendar days
+    before the newest one (0 = all)."""
+    days = sorted(d for d in fit_days if first_day is None or d >= first_day)
+    if window and days:
+        days = [d for d in days if (days[-1] - d).days < window]
+    return days
+
+
 def rolling_origin(days: list[date], min_train_days: int, fold_days: int = 1) -> list[tuple[list[date], list[date]]]:
     """Expanding window: the first fold fits on the first `min_train_days` days and
     evaluates on the next `fold_days`; each later fold adds the previous block to the fit."""

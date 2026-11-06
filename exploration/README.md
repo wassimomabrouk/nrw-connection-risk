@@ -12,5 +12,7 @@ Each exploration answers one design question and ends in a decision recorded in 
 | e06 | Which feature groups does the model use? (pre-registered rule, three weeks) | `src/.../training/feature_selection.py`, `config/feature_selection.toml` | `out/e06_feature_selection.md` | section 3: DB, hub, freshness, context |
 | e07a | What can the upstream feeder stations tell us? (inspection, one day) | `e07a_feeder_inspection.py` | `out/e07a_feeder_inspection.txt` | feeder group definition |
 | e07 | Is the feeder group worth adding? (same rule as e06) | same code, `config/feature_selection_e07.toml` | `out/e07_feeder_selection.md` | section 3: feeder kept (+0.69% at 30 min; expected: small or none) |
+| e08a | Why did the live gain over B3 drop in early November? (live predictions, per hub) | `e08a_post_construction_drift.py` | `out/e08a_post_construction_drift.txt` | section 4: the training window is tuned |
+| e08 | Which training window and learner settings? (tuning, pre-registered rule) | `src/.../training/tuning.py`, `config/tuning.toml` | `out/e08_tuning.md` (after the run, from 10 November) | section 4 |
 
-Scripts e01 to e05 read the restored data (`data/restore/`); e07a reads the collector's parsed layer on the server. None of them looks at the validation or test periods.
+Scripts e01 to e05 read the restored data (`data/restore/`); e07a reads the collector's parsed layer on the server; e08a reads the live predictions joined to their outcomes by the daily monitoring (server, training-period days). None of them looks at the validation or test periods.

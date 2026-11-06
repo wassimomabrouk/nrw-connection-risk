@@ -46,6 +46,16 @@ e07 (feeder group) uses the same code with its own configuration, on top of the 
 python -m nrw_connection_risk.training.feature_selection --config config/feature_selection_e07.toml
 ```
 
+## Tuning (e08)
+
+```
+python -m nrw_connection_risk.training.tuning
+```
+
+Tunes the model (gbm), its benchmark B3 and the logistic regression (lr), each on its own and with the same budget, with the rule pre-registered in DESIGN.md section 4 and `config/tuning.toml`. A candidate is a training window (every day since `first_day`, or only the last 21 or 14 days before each fold) plus learner settings (gradient boosting: `max_leaf_nodes`, `min_samples_leaf`; lr: `C`). Every candidate runs on the rolling origin of DESIGN.md section 6 (14 days, then weekly blocks) and is compared with the current settings against a noise floor from refitting them with another seed; it replaces them only if it beats them clearly at 30 minutes and is not worse at 60 and 10. Refuses days outside the training period and an incomplete window (`--allow-missing` overrides and is recorded). Writes `runs/<timestamp>-e08/` (`report.md`, `decision.json`, the predictions of the current and the winning settings) and a copy of the report to `exploration/out/e08_tuning.md`. The report lists the lines to set in `config/training.toml`.
+
+How models are fit, set in `config/training.toml`: `first_fit_day` (models only use days from then, here the first day with feeder data), `[fit_window]` (days of history per model, 0 = all) and `[b3]` (B3's own gradient-boosting settings, empty = the same as `[gbm]`). Evaluation, the fit command and the live bundle all follow them; the model card records the days each model was fit on.
+
 ## Output: `runs/<timestamp>-<mode>/`
 
 | File | Content |
