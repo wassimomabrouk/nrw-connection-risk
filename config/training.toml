@@ -19,7 +19,7 @@ calibration_folds = 5             # day blocks for the out-of-fold predictions t
 first_fit_day = "2026-09-30"      # models are fit on days from here: the first day with feeder data (e07)
 
 [fit_window]                      # days of history each model is fit on (0 = every day from first_fit_day);
-gbm = 0                           # tuned in phase 9 (config/tuning.toml, DESIGN.md section 4)
+gbm = 0                           # tuned in e08 (config/tuning.toml, DESIGN.md section 4): all days kept
 B3 = 0
 lr = 0
 
